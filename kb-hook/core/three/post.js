@@ -18,7 +18,7 @@ const cocShader = {
       float d = texture2D(tDepth, vUv).x;
       float z = -perspectiveDepthToViewZ(d, near, far);
       float c = clamp(aper * (1.0/focus - 1.0/z), -maxCoc, maxCoc);   // negative = foreground, positive = background (pixels)
-      vec3 col = texture2D(tColor, vUv).rgb;
+      vec3 col = texture2D(tColor, vUv).rgb; if (any(isnan(col)) || any(isinf(col))) col = vec3(0.); col = min(col, vec3(60.));
       if (aoAmt > 0.) col *= mix(1., pow(texture2D(tAO, vUv).r, 1.6), aoAmt);
       if (aoDebug > .5) col = vec3(pow(texture2D(tAO, vUv).r, 1.6));
       gl_FragColor = vec4(col, c);
