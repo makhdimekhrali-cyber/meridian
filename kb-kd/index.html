@@ -36,7 +36,9 @@ for (const z of [-HW + .9, HW - .9]) strip(0, z, L, .14, '#dcdcd6');
 for (const z of [-4.5, 4.5]) for (let x = -L / 2 + 1; x < L / 2; x += 12) strip(x + 1.5, z, 3, .13, '#dcdcd6');
 // fresh patches (darker, glossier asphalt) where the crew is filling potholes
 const PATCH = new THREE.MeshStandardMaterial({ color: '#141516', roughness: .35, polygonOffset: true, polygonOffsetFactor: -3 });
-for (const [x, z, s] of [[2, 6.3, 1.1], [7.5, 7.2, .8], [-3.5, 6.9, .9]]) { const m = new THREE.Mesh(new THREE.CircleGeometry(s, 9), PATCH); m.rotation.x = -Math.PI / 2; m.rotation.z = x; m.scale.set(1.3, 1, 1); m.position.set(x, .006, z); m.receiveShadow = true; scene.add(m); }
+PATCH.color.set('#1b1c1d'); PATCH.roughness = .55; PATCH.map = tex('asphalt_02_diff.jpg', [.5, .5], true); PATCH.normalMap = tex('asphalt_02_nor.jpg', [.5, .5]);
+const blob = (s, seed) => { const g = new THREE.CircleGeometry(s, 28), p = g.attributes.position; for (let i = 1; i < p.count; i++) { const a = Math.atan2(p.getY(i), p.getX(i)), k = 1 + .22 * Math.sin(a * 3 + seed) + .12 * Math.sin(a * 7 + seed * 2.3); p.setXY(i, p.getX(i) * k, p.getY(i) * k); } return g; };
+for (const [x, z, s] of [[2, 6.3, 1.1], [7.5, 7.2, .8], [-3.5, 6.9, .9]]) { const m = new THREE.Mesh(blob(s, x), PATCH); m.rotation.x = -Math.PI / 2; m.rotation.z = x; m.scale.set(1.3, 1, 1); m.position.set(x, .006, z); m.receiveShadow = true; scene.add(m); }
 
 // ── through-truss: two vertical trusses outside the roadway + overhead bracing ─
 const TZ = HW + .9, TOP = 13.5, PAN = 10.5;
@@ -51,7 +53,7 @@ for (let x = -L / 2 - 3; x <= L / 2 + 6; x += PAN) { member(V3(x, TOP, -TZ), V3(
 // ── models (Poly Haven CC0) ───────────────────────────────────────────────
 const GL = new GLTFLoader(); const model = async (id) => { const g = (await GL.loadAsync(A + 'models/' + id + '/' + id + '.gltf')).scene; g.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } }); return g; };
 const [BAR, GEN, SEARCH, BAG, TOOL, LAMP2] = await Promise.all(['concrete_road_barrier', 'portable_generator', 'portable_searchlight', 'cement_bag', 'metal_toolbox', 'street_lamp_02'].map(model));
-const fit = (g, axis, size) => { const b = new THREE.Box3().setFromObject(g), s = b.getSize(new THREE.Vector3()); g.scale.multiplyScalar(size / s[axis]); return g; };
+const fit = (g, axis, size) => { const b = new THREE.Box3().setFromObject(g), s = b.getSize(new THREE.Vector3()); const d = axis === 'max' ? Math.max(s.x, s.y, s.z) : s[axis]; g.scale.multiplyScalar(size / d); return g; };
 const place = (src, x, y, z, ry = 0, s) => { const g = src.clone(); if (s) g.scale.copy(s); g.position.set(x, y, z); g.rotation.y = ry; scene.add(g); return g; };
 fit(BAR, 'y', .82); const BARR = new THREE.Group(); BARR.add(BAR); { const s0 = new THREE.Box3().setFromObject(BAR).getSize(new THREE.Vector3()); if (s0.z > s0.x) BAR.rotation.y = Math.PI / 2; const b = new THREE.Box3().setFromObject(BARR); BAR.position.y = -b.min.y; BAR.position.x -= (b.min.x + b.max.x) / 2; BAR.position.z -= (b.min.z + b.max.z) / 2; BARR.userData.len = b.getSize(new THREE.Vector3()).x; }
 for (const s of [-1, 1]) for (let x = -L / 2 + 1.5; x < L / 2; x += BARR.userData.len + .03) { const g = BARR.clone(); g.position.set(x, 0, s * (HW - .45)); scene.add(g); }
@@ -61,10 +63,10 @@ const lampHeads = [];
 for (const [x, s] of [[-31.5, 1], [10.5, 1], [-10.5, -1], [31.5, -1]]) { const g = place(LAMP2, x, LAMP2.userData.dy + .8, s * (HW - .2), s > 0 ? Math.PI : 0, LAMP2.scale);
   const sp = new THREE.SpotLight('#ffab52', 2600, 40, .95, .65, 2); sp.position.set(x, 10.6, s * (HW - 3.2)); sp.target.position.set(x, 0, s * (HW - 6)); sp.castShadow = true; sp.shadow.mapSize.set(1024, 1024); sp.shadow.bias = -.0004; scene.add(sp, sp.target); lampHeads.push(sp.position.clone()); }
 // work zone in the outer southbound lane (z>0): generator, light tower, bags, toolbox
-fit(GEN, 'x', 1.0); { const b = new THREE.Box3().setFromObject(GEN); place(GEN, -7.5, -b.min.y, 7.6, .4, GEN.scale); }
-fit(SEARCH, 'y', 2.4); { const b = new THREE.Box3().setFromObject(SEARCH); place(SEARCH, 11, -b.min.y, 7.9, -2.3, SEARCH.scale); }
-fit(BAG, 'x', .65); { const b = new THREE.Box3().setFromObject(BAG); for (const [x, z, ry, y] of [[-5.8, 7.9, .2, 0], [-5.2, 8.0, -.3, 0], [-5.5, 7.95, .9, .17]]) place(BAG, x, -b.min.y + y, z, ry, BAG.scale); }
-fit(TOOL, 'x', .55); { const b = new THREE.Box3().setFromObject(TOOL); place(TOOL, 4.8, -b.min.y, 8.1, .5, TOOL.scale); }
+fit(GEN, 'max', .95); { const b = new THREE.Box3().setFromObject(GEN); place(GEN, -7.5, -b.min.y, 7.6, .4, GEN.scale); }
+fit(SEARCH, 'max', 1.3); { const b = new THREE.Box3().setFromObject(SEARCH); place(SEARCH, 11, -b.min.y, 7.9, -2.3, SEARCH.scale); }
+fit(BAG, 'max', .62); { const b = new THREE.Box3().setFromObject(BAG); for (const [x, z, ry, y] of [[-5.8, 7.9, .2, 0], [-5.2, 8.0, -.3, 0], [-5.5, 7.95, .9, .17]]) place(BAG, x, -b.min.y + y, z, ry, BAG.scale); }
+fit(TOOL, 'max', .55); { const b = new THREE.Box3().setFromObject(TOOL); place(TOOL, 4.8, -b.min.y, 8.1, .5, TOOL.scale); }
 const work = new THREE.SpotLight('#f4f1ff', 1600, 60, .7, .6, 2); work.position.set(11.2, 6.5, 8.4); work.target.position.set(1, 0, 6.2); work.castShadow = true; work.shadow.mapSize.set(2048, 2048); work.shadow.bias = -.0003; scene.add(work, work.target);
 const lensMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#fffaf0').multiplyScalar(2.5), toneMapped: false }); add(new THREE.CircleGeometry(.22, 16), lensMat, 11.1, 2.32, 7.75).lookAt(1, 0, 6.2);
 // traffic cones closing the lane (orange + 2 retro-reflective collars)
