@@ -40,7 +40,7 @@ const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 const STD = (color, rough = .8, metal = 0, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, ...extra });
 const EM = (c, k = 1) => new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(k), toneMapped: false });
 function mesh(geo, mat, parent, x = 0, y = 0, z = 0, cast = true) { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = cast; m.receiveShadow = true; parent.add(m); return m; }
-const BOX = (w, h, d, r) => new RoundedBoxGeometry(w, h, d, 3, r ?? Math.min(w, h, d) * .08);
+const BOX = (w, h, d, r) => new RoundedBoxGeometry(w, h, d, 3, Math.min(r ?? Math.min(w, h, d) * .08, Math.min(w, h, d) * .45));
 // side-profile extrusion: pts in (x, y), extruded along z, centred; bevelled edges
 function profile(pts, depth, bevel = .05) { const sh = new THREE.Shape(); pts.forEach((p, i) => { if (p.length === 4) sh.quadraticCurveTo(p[0], p[1], p[2], p[3]); else sh[i ? 'lineTo' : 'moveTo'](p[0], p[1]); });
   const g = new THREE.ExtrudeGeometry(sh, { depth: depth - 2 * bevel, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 4, curveSegments: 10 }); g.translate(0, 0, -(depth - 2 * bevel) / 2); g.computeVertexNormals(); return g; }
