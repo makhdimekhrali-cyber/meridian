@@ -53,8 +53,8 @@ const GL = new GLTFLoader(); const model = async (id) => { const g = (await GL.l
 const [BAR, GEN, SEARCH, BAG, TOOL, LAMP2] = await Promise.all(['concrete_road_barrier', 'portable_generator', 'portable_searchlight', 'cement_bag', 'metal_toolbox', 'street_lamp_02'].map(model));
 const fit = (g, axis, size) => { const b = new THREE.Box3().setFromObject(g), s = b.getSize(new THREE.Vector3()); g.scale.multiplyScalar(size / s[axis]); return g; };
 const place = (src, x, y, z, ry = 0, s) => { const g = src.clone(); if (s) g.scale.copy(s); g.position.set(x, y, z); g.rotation.y = ry; scene.add(g); return g; };
-fit(BAR, 'x', 3.0); { const b = new THREE.Box3().setFromObject(BAR); BAR.userData.dy = -b.min.y; BAR.userData.len = b.getSize(new THREE.Vector3()).x; }
-for (const s of [-1, 1]) for (let x = -L / 2 + 1.5; x < L / 2; x += BAR.userData.len + .02) place(BAR, x, BAR.userData.dy, s * (HW - .35), 0, BAR.scale);
+fit(BAR, 'y', .82); const BARR = new THREE.Group(); BARR.add(BAR); { const s0 = new THREE.Box3().setFromObject(BAR).getSize(new THREE.Vector3()); if (s0.z > s0.x) BAR.rotation.y = Math.PI / 2; const b = new THREE.Box3().setFromObject(BARR); BAR.position.y = -b.min.y; BAR.position.x -= (b.min.x + b.max.x) / 2; BAR.position.z -= (b.min.z + b.max.z) / 2; BARR.userData.len = b.getSize(new THREE.Vector3()).x; }
+for (const s of [-1, 1]) for (let x = -L / 2 + 1.5; x < L / 2; x += BARR.userData.len + .03) { const g = BARR.clone(); g.position.set(x, 0, s * (HW - .45)); scene.add(g); }
 // lamps: davit poles on the barriers every 2 panels, real sodium light
 fit(LAMP2, 'y', 11); { const b = new THREE.Box3().setFromObject(LAMP2); LAMP2.userData.dy = -b.min.y; }
 const lampHeads = [];
@@ -65,8 +65,8 @@ fit(GEN, 'x', 1.0); { const b = new THREE.Box3().setFromObject(GEN); place(GEN, 
 fit(SEARCH, 'y', 2.4); { const b = new THREE.Box3().setFromObject(SEARCH); place(SEARCH, 11, -b.min.y, 7.9, -2.3, SEARCH.scale); }
 fit(BAG, 'x', .65); { const b = new THREE.Box3().setFromObject(BAG); for (const [x, z, ry, y] of [[-5.8, 7.9, .2, 0], [-5.2, 8.0, -.3, 0], [-5.5, 7.95, .9, .17]]) place(BAG, x, -b.min.y + y, z, ry, BAG.scale); }
 fit(TOOL, 'x', .55); { const b = new THREE.Box3().setFromObject(TOOL); place(TOOL, 4.8, -b.min.y, 8.1, .5, TOOL.scale); }
-const work = new THREE.SpotLight('#f4f1ff', 9000, 60, .75, .55, 2); work.position.set(11.2, 6.5, 8.4); work.target.position.set(1, 0, 6.2); work.castShadow = true; work.shadow.mapSize.set(2048, 2048); work.shadow.bias = -.0003; scene.add(work, work.target);
-const lensMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#fffaf0').multiplyScalar(6), toneMapped: false }); add(new THREE.CircleGeometry(.22, 16), lensMat, 11.1, 2.32, 7.75).lookAt(1, 0, 6.2);
+const work = new THREE.SpotLight('#f4f1ff', 1600, 60, .7, .6, 2); work.position.set(11.2, 6.5, 8.4); work.target.position.set(1, 0, 6.2); work.castShadow = true; work.shadow.mapSize.set(2048, 2048); work.shadow.bias = -.0003; scene.add(work, work.target);
+const lensMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#fffaf0').multiplyScalar(2.5), toneMapped: false }); add(new THREE.CircleGeometry(.22, 16), lensMat, 11.1, 2.32, 7.75).lookAt(1, 0, 6.2);
 // traffic cones closing the lane (orange + 2 retro-reflective collars)
 const ORANGE = new THREE.MeshStandardMaterial({ color: '#ff4a0a', roughness: .5 }), REFL = new THREE.MeshStandardMaterial({ color: '#f4f4f0', roughness: .3, emissive: '#ffffff', emissiveIntensity: .08 }), BASE = new THREE.MeshStandardMaterial({ color: '#141414', roughness: .7 });
 const cone = new THREE.Group(); add(new THREE.CylinderGeometry(.03, .16, .72, 20), ORANGE, 0, .4, 0, cone); add(new THREE.CylinderGeometry(.075, .095, .1, 20), REFL, 0, .52, 0, cone); add(new THREE.CylinderGeometry(.115, .132, .09, 20), REFL, 0, .33, 0, cone); add(new THREE.BoxGeometry(.4, .04, .4), BASE, 0, .02, 0, cone);
