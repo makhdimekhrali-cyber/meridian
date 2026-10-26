@@ -252,8 +252,8 @@ const WORKER = clothes('worker'), CREWM = clothes('crew');
 // Kaktus-style role figures: one glossy colour, soft inner glow + fresnel rim so they read in the dark
 function roleMat(col, glow = .35) { const m = new THREE.MeshPhysicalMaterial({ color: col, roughness: .42, metalness: 0, clearcoat: .6, clearcoatRoughness: .35, emissive: col, emissiveIntensity: glow, flatShading: true });
   m.customProgramCacheKey = () => 'role-' + col; m.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-    float fr = pow(1. - abs(dot(normalize(vViewPosition), normal)), 2.6); totalEmissiveRadiance += emissive * fr * 2.2;`); }; return m; }
-const ROLE = { crew: roleMat('#3f6dff', .35), pilot: roleMat('#d9dde6', .12), dark: roleMat('#24272d', .05) };
+    float fr = pow(1. - abs(dot(normalize(vViewPosition), normal)), 2.2); totalEmissiveRadiance += mix(emissive, vec3(1.), .55) * fr * 1.6;`); }; return m; }
+const ROLE = { crew: roleMat('#2f5bff', .28), pilot: roleMat('#e8ebf0', .1), dark: roleMat('#24272d', .05), red: roleMat('#ff3a2a', .3) };
 const FIG = window.FIG || 'statue';
 // ── "Mixamo → pose → apply armature → Decimate → Shade Flat" statue figures (Kaktus / Fern look) ──
 const { SimplifyModifier } = await import('three/addons/modifiers/SimplifyModifier.js');
@@ -261,26 +261,37 @@ const BGU = await import('three/addons/utils/BufferGeometryUtils.js');
 const SOLDIER = FIG === 'statue' ? await new GLTFLoader().loadAsync('models/Soldier.glb') : null;
 const statueCache = {};
 function statue(o = {}) {
+  // Kaktus recipe: realistic clothed body kept smooth; skin (head, neck, hands) → low-poly faceted mask in the role colour with a white edge
   const src = SOLDIER, r = SkeletonUtils.clone(src.scene), B = {};
   r.traverse(n => { if (n.isBone) B[n.name.replace('mixamorig', '')] = n; });
-  const mixer = new THREE.AnimationMixer(r); const clip = src.animations.find(a => a.name === 'Idle'); mixer.clipAction(clip).play(); mixer.setTime(o.phase ?? hash(Object.keys(statueCache).length + Math.random() * 0 + (statue.n = (statue.n || 0) + 1) * 7.1) * 3);
+  const mixer = new THREE.AnimationMixer(r); const clip = src.animations.find(a => a.name === 'Idle'); mixer.clipAction(clip).play(); mixer.setTime(o.phase ?? ((statue.n = (statue.n || 0) + 1) * 0.73) % 3);
   for (const [name, [x, y, z]] of Object.entries(o.pose || {})) if (B[name]) { B[name].rotation.x += x; B[name].rotation.y += y; B[name].rotation.z += z; }
   if (o.hipDrop) B.Hips.position.y *= o.hipDrop;
   r.updateMatrixWorld(true);
-  const inv = new THREE.Matrix4().copy(r.matrixWorld).invert(), geos = [], v = new THREE.Vector3();
-  r.traverse(m => { if (!m.isSkinnedMesh) return; const g0 = m.geometry, pos = g0.attributes.position, out = new Float32Array(pos.count * 3);
-    for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i); m.applyBoneTransform(i, v); v.applyMatrix4(m.matrixWorld).applyMatrix4(inv); out.set([v.x, v.y, v.z], i * 3); }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(out, 3)); if (g0.index) g.setIndex(g0.index.clone()); geos.push(g); });
-  let geo = BGU.mergeVertices(BGU.mergeGeometries(geos), 1e-4);
-  const keep = o.keep ?? .22, remove = Math.floor(geo.attributes.position.count * (1 - keep));
-  geo = new SimplifyModifier().modify(geo, remove);
-  geo = geo.index ? geo.toNonIndexed() : geo; geo.deleteAttribute('normal'); geo.computeVertexNormals();
-  const mat = o.mat || ROLE.crew; const mesh2 = new THREE.Mesh(geo, mat); mesh2.castShadow = mesh2.receiveShadow = true;
-  geo.computeBoundingBox(); const top = new THREE.Group(), root = new THREE.Group(); top.add(root); root.position.y = -geo.boundingBox.min.y; root.add(mesh2);
+  const inv = new THREE.Matrix4().copy(r.matrixWorld).invert(), v = new THREE.Vector3();
+  const skinRx = /Head|Neck|Hand|Thumb|Index|Middle|Ring|Pinky|Eye/;
+  const clothGeos = [], skinGeos = []; let clothMat = null;
+  r.traverse(m => { if (!m.isSkinnedMesh) return;
+    const g0 = m.geometry, pos = g0.attributes.position, si = g0.attributes.skinIndex, sw = g0.attributes.skinWeight, out = new Float32Array(pos.count * 3), isSkin = new Uint8Array(pos.count);
+    for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i); m.applyBoneTransform(i, v); v.applyMatrix4(m.matrixWorld).applyMatrix4(inv); out.set([v.x, v.y, v.z], i * 3);
+      let best = 0, bw = -1; for (let k = 0; k < 4; k++) { const w = sw.getComponent(i, k); if (w > bw) { bw = w; best = si.getComponent(i, k); } }
+      isSkin[i] = skinRx.test(m.skeleton.bones[best].name) ? 1 : 0; }
+    const idx = g0.index ? g0.index.array : [...Array(pos.count).keys()], ci = [], sk = [];
+    for (let t = 0; t < idx.length; t += 3) { const a = idx[t], b = idx[t + 1], c = idx[t + 2]; ((isSkin[a] + isSkin[b] + isSkin[c]) >= 2 ? sk : ci).push(a, b, c); }
+    const mk = (list, withUv) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(out, 3)); if (withUv && g0.attributes.uv) g.setAttribute('uv', g0.attributes.uv); g.setIndex(list); return g; };
+    if (ci.length) { clothGeos.push(mk(ci, true)); clothMat = m.material; }
+    if (sk.length) skinGeos.push(mk(sk, false)); });
+  const top = new THREE.Group(), root = new THREE.Group(); top.add(root);
+  const role = o.mat || ROLE.crew;
+  if (clothGeos.length) { const cg = BGU.mergeGeometries(clothGeos); cg.computeVertexNormals();
+    const cm = o.fullRole ? role : new THREE.MeshStandardMaterial({ map: clothMat.map, normalMap: clothMat.normalMap || null, color: new THREE.Color(o.cloth || '#8a8f96'), roughness: .8, metalness: 0 });
+    const cmesh = new THREE.Mesh(cg, cm); cmesh.castShadow = cmesh.receiveShadow = true; root.add(cmesh); cg.computeBoundingBox(); root.position.y = -cg.boundingBox.min.y; }
+  if (skinGeos.length) { let sg = BGU.mergeVertices(BGU.mergeGeometries(skinGeos), 1e-4); const rem = Math.floor(sg.attributes.position.count * (1 - (o.keep ?? .18)));
+    sg = new SimplifyModifier().modify(sg, rem); sg = sg.index ? sg.toNonIndexed() : sg; if (sg.attributes.normal) sg.deleteAttribute('normal'); sg.computeVertexNormals();
+    const smesh = new THREE.Mesh(sg, role); smesh.castShadow = true; root.add(smesh); }
   if (o.tool) { const hp = new THREE.Vector3(), hq = new THREE.Quaternion(); B.RightHand.getWorldPosition(hp); B.RightHand.getWorldQuaternion(hq); hp.applyMatrix4(inv);
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.02, .02, 1.35, 6), mat); shaft.position.copy(hp); shaft.quaternion.copy(hq); shaft.rotateX(1.3); shaft.translateY(-.05); shaft.castShadow = true; root.add(shaft);
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(.24, .02, .3), mat); blade.position.set(0, -.7, 0); shaft.add(blade); }
-  if (o.hat) { const hp = new THREE.Vector3(); B.Head.getWorldPosition(hp); hp.applyMatrix4(inv); const h = new THREE.Mesh(new THREE.SphereGeometry(.14, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), mat); h.position.copy(hp).add(V(0, .1, .01)); h.castShadow = true; root.add(h); }
+    const wood = STD('#6b5238', .7); const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.018, .018, 1.35, 8), wood); shaft.position.copy(hp); shaft.quaternion.copy(hq); shaft.rotateX(1.3); shaft.translateY(-.05); shaft.castShadow = true; root.add(shaft);
+    const blade = new THREE.Mesh(BOX(.22, .02, .28, .005), STD('#5d6164', .35, .7)); blade.position.set(0, -.7, 0); shaft.add(blade); }
   return { r: top, static: true };
 }
 const bots = [];
@@ -357,7 +368,7 @@ const crew = [];
     [108.5, 6.0, -1.8, { vest: true, hat: true }],
     [115, 4.4, .8, { vest: true, hat: true, hipDrop: .58, pose: { LeftUpLeg: [-1.4, 0, 0], RightUpLeg: [-1.5, 0, 0], LeftLeg: [2.1, 0, 0], RightLeg: [2.2, 0, 0], Spine: [.5, 0, 0], RightArm: [.4, 0, .7] } }],
     [121, 6.8, 2.0, { vest: true, hat: true, pose: { LeftArm: [0, 0, .5], LeftForeArm: [0, 0, 1.2] } }]];
-  for (const [x, z, r, o] of poses) { const b = FIG === 'statue' ? statue({ ...o, hat: true }) : xbot(o); b.r.position.set(x, DECKY, z); b.r.rotation.y = r; world.add(b.r); crew.push(b); }
+  for (const [x, z, r, o] of poses) { const b = FIG === 'statue' ? statue({ ...o, cloth: ['#7d858e', '#8d8573', '#6f7f8f', '#88807a'][crew.length % 4] }) : xbot(o); b.r.position.set(x, DECKY, z); b.r.rotation.y = r; world.add(b.r); crew.push(b); }
   for (const [x, z] of [[90, 5], [102, 3.6], [112, 6.0]]) { const p = mesh(new THREE.CircleGeometry(.9, 18), STD('#151617', 1), world, x, DECKY + .13, z, false); p.rotation.x = -Math.PI / 2; p.scale.set(1.5, .8, 1); }
   mesh(new THREE.CylinderGeometry(.3, .27, .45, 24), STD('#3f4448', .6, .3), world, 95, DECKY + .23, 7.8); mesh(new THREE.CylinderGeometry(.3, .27, .45, 24), STD('#e2e2de', .6), world, 95.8, DECKY + .23, 7.5);   // asphalt pail / tools
 }
@@ -630,6 +641,7 @@ window.render = t => {
   else if (k === 'timeline') { const s = 250 * eio(seg(t, 39.6, 45.6)) * .98; shipOnTrack(s); updTrail(s); trail.visible = true;
     pos = lv(V(-80, 1500, 980), V(-100, 1250, 720), eio(u)); tgt = lv(V(-80, 0, 520), V(-100, 0, 380), eio(u)); fov = 40;
     keyOn = .35; keyPos = V(-300, 1200, 900); keyTgt = V(-80, 0, 400); }
+  if (window.CU && crew[window.CU.i]) { const c = crew[window.CU.i].r.position, a = window.CU.az, d = window.CU.d; tgt = V(c.x, c.y + (window.CU.h ?? 1.1), c.z); pos = V(c.x + Math.sin(a) * d, c.y + (window.CU.ch ?? 1.4), c.z + Math.cos(a) * d); fov = window.CU.fov || 30; focusD = d; aper = 6; ao = .8; }
   { const dd = pos.distanceTo(tgt), amp = Math.min(.35, dd * .0016) * (k === 'timeline' || k === 'scale' ? .3 : 1);
     pos = pos.clone().add(V(Math.sin(t * 1.31) * .6 + Math.sin(t * 2.71 + 1) * .4, Math.sin(t * 1.07 + 2) * .5 + Math.sin(t * 3.1) * .3, Math.sin(t * .93 + 4) * .5).multiplyScalar(amp)); }
   look(wcam, pos, tgt, fov);
