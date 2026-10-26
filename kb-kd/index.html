@@ -76,13 +76,12 @@ for (let i = 0; i < 16; i++) { const x = -22 + i * 2.6, z = i < 3 ? 9 - i * .9 :
 for (let i = 0; i < 4; i++) { const c = cone.clone(); c.position.set(20 + i * 2.2, 0, 4.9 + i * 1.0); scene.add(c); }
 
 // ── people: Mixamo poses → decimated, faceted mannequins; hi-vis vest painted from the spine weights ─
-const FIGM = new THREE.MeshStandardMaterial({ color: '#e8e6e1', roughness: .62, flatShading: true, vertexColors: true });
+const FIGM = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: .75, envMapIntensity: .6, flatShading: true, vertexColors: true });
 FIGM.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', `
     float vest = smoothstep(.42, .55, vColor.r); float sp = vColor.g;
     float band = (1. - smoothstep(.0, .025, abs(sp - .30) - .035)) + (1. - smoothstep(.0, .025, abs(sp - .58) - .035)); band = clamp(band, 0., 1.) * vest;
     vec3 base = vec3(.72, .71, .69); vec3 hv = vec3(.55, .72, .08);
-    diffuseColor.rgb = mix(mix(base, hv, vest), vec3(.78), band);`).replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-    totalEmissiveRadiance += vec3(.25) * band * pow(max(dot(normal, normalize(-vViewPosition)), 0.), 6.);`); };
+    diffuseColor.rgb = mix(mix(base, hv, vest), vec3(.78), band);`); };
 const FN = ['Remy_Digging', 'James_Inspect', 'Leonard_Idle', 'Brian_Phone', 'Remy_Crouch'], FG = {};
 for (const n of FN) { const g = (await GL.loadAsync(A + 'figs/' + n + '.glb')).scene; let full = null, hands = null; g.traverse(o => { if (o.userData && o.userData.hands) hands = o.userData.hands; if (o.isMesh && o.name === 'full30') full = o; });
   const grp = new THREE.Group(); const m = new THREE.Mesh(full.geometry, FIGM); m.castShadow = m.receiveShadow = true; grp.add(m);
