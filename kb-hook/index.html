@@ -279,12 +279,12 @@ function statue(o = {}) {
     const idx = g0.index ? g0.index.array : [...Array(pos.count).keys()], ci = [], sk = [];
     for (let t = 0; t < idx.length; t += 3) { const a = idx[t], b = idx[t + 1], c = idx[t + 2]; ((isSkin[a] + isSkin[b] + isSkin[c]) >= 2 ? sk : ci).push(a, b, c); }
     const mk = (list, withUv) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(out, 3)); if (withUv && g0.attributes.uv) g.setAttribute('uv', g0.attributes.uv); g.setIndex(list); return g; };
-    if (ci.length) { clothGeos.push(mk(ci, true)); clothMat = m.material; }
+    if (ci.length) { clothGeos.push(mk(ci, true)); if (!clothMat || (!clothMat.map && m.material.map)) clothMat = m.material; }
     if (sk.length) skinGeos.push(mk(sk, false)); });
   const top = new THREE.Group(), root = new THREE.Group(); top.add(root);
   const role = o.mat || ROLE.crew;
   if (clothGeos.length) { const cg = BGU.mergeGeometries(clothGeos); cg.computeVertexNormals();
-    const cm = o.fullRole ? role : new THREE.MeshStandardMaterial({ map: clothMat.map, normalMap: clothMat.normalMap || null, color: new THREE.Color(o.cloth || '#8a8f96'), roughness: .8, metalness: 0 });
+    const cm = o.fullRole ? role : new THREE.MeshStandardMaterial({ map: clothMat.map || null, color: new THREE.Color(o.cloth || '#8a8f96'), roughness: .78, metalness: 0 });
     const cmesh = new THREE.Mesh(cg, cm); cmesh.castShadow = cmesh.receiveShadow = true; root.add(cmesh); cg.computeBoundingBox(); root.position.y = -cg.boundingBox.min.y; }
   if (skinGeos.length) { let sg = BGU.mergeVertices(BGU.mergeGeometries(skinGeos), 1e-4); const rem = Math.floor(sg.attributes.position.count * (1 - (o.keep ?? .18)));
     sg = new SimplifyModifier().modify(sg, rem); sg = sg.index ? sg.toNonIndexed() : sg; if (sg.attributes.normal) sg.deleteAttribute('normal'); sg.computeVertexNormals();
