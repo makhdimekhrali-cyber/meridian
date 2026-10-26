@@ -284,7 +284,7 @@ function statue(o = {}) {
   const top = new THREE.Group(), root = new THREE.Group(); top.add(root);
   const role = o.mat || ROLE.crew;
   if (clothGeos.length) { const cg = BGU.mergeGeometries(clothGeos); cg.computeVertexNormals();
-    const cm = o.fullRole ? role : new THREE.MeshStandardMaterial({ map: clothMat.map || null, color: new THREE.Color(o.cloth || '#8a8f96'), roughness: .78, metalness: 0 });
+    const cm = o.fullRole ? role : new THREE.MeshStandardMaterial({ color: new THREE.Color(o.cloth || '#8a8f96'), roughness: .72, metalness: 0 });
     const cmesh = new THREE.Mesh(cg, cm); cmesh.castShadow = cmesh.receiveShadow = true; root.add(cmesh); cg.computeBoundingBox(); root.position.y = -cg.boundingBox.min.y; }
   if (skinGeos.length) { let sg = BGU.mergeVertices(BGU.mergeGeometries(skinGeos), 1e-4); const rem = Math.floor(sg.attributes.position.count * (1 - (o.keep ?? .18)));
     sg = new SimplifyModifier().modify(sg, rem); sg = sg.index ? sg.toNonIndexed() : sg; if (sg.attributes.normal) sg.deleteAttribute('normal'); sg.computeVertexNormals();
@@ -368,7 +368,7 @@ const crew = [];
     [108.5, 6.0, -1.8, { vest: true, hat: true }],
     [115, 4.4, .8, { vest: true, hat: true, hipDrop: .58, pose: { LeftUpLeg: [-1.4, 0, 0], RightUpLeg: [-1.5, 0, 0], LeftLeg: [2.1, 0, 0], RightLeg: [2.2, 0, 0], Spine: [.5, 0, 0], RightArm: [.4, 0, .7] } }],
     [121, 6.8, 2.0, { vest: true, hat: true, pose: { LeftArm: [0, 0, .5], LeftForeArm: [0, 0, 1.2] } }]];
-  for (const [x, z, r, o] of poses) { const b = FIG === 'statue' ? statue({ ...o, cloth: ['#7d858e', '#8d8573', '#6f7f8f', '#88807a'][crew.length % 4] }) : xbot(o); b.r.position.set(x, DECKY, z); b.r.rotation.y = r; world.add(b.r); crew.push(b); }
+  for (const [x, z, r, o] of poses) { const b = FIG === 'statue' ? statue({ ...o, cloth: ['#3d4652', '#4a4a44', '#2e3a4a', '#47413c'][crew.length % 4] }) : xbot(o); b.r.position.set(x, DECKY, z); b.r.rotation.y = r; world.add(b.r); crew.push(b); }
   for (const [x, z] of [[90, 5], [102, 3.6], [112, 6.0]]) { const p = mesh(new THREE.CircleGeometry(.9, 18), STD('#151617', 1), world, x, DECKY + .13, z, false); p.rotation.x = -Math.PI / 2; p.scale.set(1.5, .8, 1); }
   mesh(new THREE.CylinderGeometry(.3, .27, .45, 24), STD('#3f4448', .6, .3), world, 95, DECKY + .23, 7.8); mesh(new THREE.CylinderGeometry(.3, .27, .45, 24), STD('#e2e2de', .6), world, 95.8, DECKY + .23, 7.5);   // asphalt pail / tools
 }
