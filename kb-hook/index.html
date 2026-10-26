@@ -78,8 +78,8 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(20000, 48, 24), new THREE.Sh
       gl_FragColor = vec4(col * dark, 1.); }` }));
 sky.renderOrder = -1; world.add(sky); window._sky = sky;
 
-const moon = new THREE.DirectionalLight('#7f9fd8', .3); moon.position.set(-2000, 2600, -1800); world.add(moon);
-const hemi = new THREE.HemisphereLight('#3d5680', '#07090c', .22); world.add(hemi);
+const moon = new THREE.DirectionalLight('#7f9fd8', .16); moon.position.set(-2000, 2600, -1800); world.add(moon);
+const hemi = new THREE.HemisphereLight('#3d5680', '#07090c', .08); world.add(hemi);
 const key = new THREE.SpotLight('#dfe7f5', 0, 0, .55, .9, 0); key.castShadow = true; key.shadow.mapSize.set(4096, 4096); key.shadow.bias = -.0004; key.shadow.normalBias = .6; world.add(key, key.target);
 
 // water: reflective, procedural normal map
@@ -253,7 +253,7 @@ const bots = [];
 function xbot(o = {}) {
   const r = SkeletonUtils.clone(XB.scene); const B = {}; r.traverse(n => { if (n.isBone) B[n.name.replace('mixamorig', '')] = n; if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; n.frustumCulled = false; n.material = n.material.name.includes('Joints') ? XJOINT : (o.vest ? WORKER : o.crewm ? CREWM : XBODY); } });
   const mixer = new THREE.AnimationMixer(r); mixer.clipAction(XB_IDLE).play();
-  const bot = { r, B, mixer, o, phase: o.phase ?? hash(bots.length * 3.3) * 2.4 };
+  const bot = { r, B, mixer, o, phase: o.phase ?? hash(bots.length * 3.3) * 2.4, rest: Object.values(B).map(b => [b, b.quaternion.clone(), b.position.clone()]) };
   r.updateMatrixWorld(true);
   const ws = new THREE.Vector3(); B.Spine1.getWorldScale(ws); const inv = 1 / ws.x;
   if (o.hat) { B.Head.getWorldScale(ws); const iv = 1 / ws.x; const h = new THREE.Mesh(new THREE.SphereGeometry(.13, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), HAT); h.scale.setScalar(iv); h.position.set(0, .1 * iv, .01 * iv); h.castShadow = true; B.Head.add(h);
@@ -263,7 +263,7 @@ function xbot(o = {}) {
   bots.push(bot); return bot;
 }
 // pose deltas on top of the idle cycle (radians, bone-local)
-function poseBot(bot, t) { const { B, o, mixer } = bot; mixer.setTime(bot.phase + t * (o.still ? 0 : 1)); const d = o.pose || {};
+function poseBot(bot, t) { const { B, o, mixer } = bot; for (const [b, q, p] of bot.rest) { b.quaternion.copy(q); b.position.copy(p); } mixer.setTime(bot.phase + t * (o.still ? 0 : 1)); const d = o.pose || {};
   for (const [name, [x, y, z]] of Object.entries(d)) { if (B[name]) { B[name].rotation.x += x; B[name].rotation.y += y; B[name].rotation.z += z; } }
   if (o.hipDrop) B.Hips.position.y *= o.hipDrop;
   if (o.work) { const w = Math.sin((t + bot.phase) * 2.4) * .12; B.Spine.rotation.x += w; B.RightArm.rotation.z += w * .8; } }
@@ -581,15 +581,15 @@ window.render = t => {
     police[0].pl.intensity = police[0].on ? 160 : 0; LAMP.uPol.value.w = 0; focusD = 9; aper = 3; ao = .5; }
   else if (k === 'deckRun') { const x = lerp(520, 440, eio(u)); pos = V(x, deckY(x) + 3.2, 6.5); tgt = V(x - 220, DECKY + 3, 2); fov = 32; window._wl.intensity = 450; }
   else if (k === 'crew') { pos = lv(V(76, DECKY + 4.6, 9.6), V(83, DECKY + 4.0, 9.2), eio(u)); tgt = lv(V(100, DECKY + .9, 4), V(102, DECKY + .8, 4.5), u); fov = 36;
-    window._wl.intensity = 450; keyOn = .25; keyPos = V(60, DECKY + 120, 90); keyTgt = V(100, DECKY, 5); focusD = pos.distanceTo(V(95, DECKY + 1, 5)); aper = 5; ao = .8; }
+    window._wl.intensity = 450; keyOn = .03; keyPos = V(60, DECKY + 120, 90); keyTgt = V(100, DECKY, 5); focusD = pos.distanceTo(V(95, DECKY + 1, 5)); aper = 5; ao = .8; }
   else if (k === 'daliIn') { const bz = lerp(1440, 1400, u); shipBow(-30, bz); pos = V(70, 6, bz - 70 + 20 * u); tgt = V(-30, 18, bz + 60 + 50 * eio(u)); fov = 36;
-    keyOn = .5; keyPos = V(260, 380, bz - 200); keyTgt = V(-30, 10, bz + 80); floods.forEach(f => f.intensity = 900); }
+    keyOn = .25; keyPos = V(260, 380, bz - 200); keyTgt = V(-30, 10, bz + 80); floods.forEach(f => f.intensity = 900); }
   else if (k === 'scale') { shipBow(-30, 1160); pos = lv(V(250, 300, 1520), V(280, 360, 1400), eio(u)); tgt = V(20, 0, 1300); fov = 40;
-    keyOn = .7; keyPos = V(300, 700, 1600); keyTgt = V(10, 0, 1300); floods.forEach(f => f.intensity = 500);
+    keyOn = .35; keyPos = V(300, 700, 1600); keyTgt = V(10, 0, 1300); floods.forEach(f => f.intensity = 500);
     fields.forEach((f, i) => { const a = seg(t, 20.13 + i * .35, 20.5 + i * .35); f.visible = a > 0; f.position.set(-30 + SB / 2 + 12 + FIELD_W / 2, .2 - (1 - eo(a)) * 2, 1160 + SL - FIELD_L / 2 - i * FIELD_L + (1 - eo(a)) * 30); }); }
   else if (k === 'stacks') { const bz = 1150 - (t - 21.9) * 3.3; shipBow(-30, bz); const z0 = bz + SL / 2;
     pos = lv(V(6, 40, z0 + 100), V(4, 37, z0 + 30), eio(u)); tgt = lv(V(-36, 25, z0 - 10), V(-42, 24, z0 - 100), eio(u)); fov = 36;
-    keyOn = .3; keyPos = V(220, 300, z0 + 40); keyTgt = V(-30, 20, z0); floods.forEach(f => f.intensity = 700); ao = .6; }
+    keyOn = .1; keyPos = V(220, 300, z0 + 40); keyTgt = V(-30, 20, z0); floods.forEach(f => f.intensity = 700); ao = .6; }
   else if (k === 'lightsOut') { shipBow(-20, 965); const base = ship.localToWorld(WH.position.clone());
     pos = lv(base.clone().add(V(4.2, 2.0, 3.8)), base.clone().add(V(3.0, 1.9, 2.0)), eio(u)); tgt = base.clone().add(V(-3, 1.4, -40)); fov = 42;
     focusD = 5; aper = 2.5; ao = .5; }
@@ -709,8 +709,8 @@ if (window.PH) {
       im.castShadow = im.receiveShadow = true; world.add(im); window._bar.visible = false; } catch (e) { console.warn('barrier', e); } })(),
   ]);
   const hdr = await hdrP; hdr.mapping = THREE.EquirectangularReflectionMapping;
-  world.background = hdr; world.backgroundIntensity = .22; world.backgroundRotation = new THREE.Euler(0, 2.2, 0);
-  world.environment = pmrem.fromEquirectangular(hdr).texture; world.environmentIntensity = .14; window._sky.visible = false;
+  world.background = hdr; world.backgroundIntensity = .14; world.backgroundRotation = new THREE.Euler(0, 2.2, 0);
+  world.environment = pmrem.fromEquirectangular(hdr).texture; world.environmentIntensity = .06; window._sky.visible = false;
   const stars = 0;
 }
 
