@@ -1,0 +1,95 @@
+<!doctype html><html><body><script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script>window.FULL = true;</script><script type="module">
+// Kaktus/Render-Room recipe, baked offline: Mixamo character → mocap pose frame → apply armature →
+// clothes kept (PBR, maps, metal 0) · hair/eyes/lashes dropped · exposed skin (head, neck, hands) → decimated faceted mask
+import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { SimplifyModifier } from 'three/addons/modifiers/SimplifyModifier.js';
+import * as BGU from 'three/addons/utils/BufferGeometryUtils.js';
+const JOBS = window.JOBS || { Remy_Digging: 1.45, Remy_Crouch: 1.0, James_Inspect: 2.6, Leonard_Idle: 2.0, Brian_Phone: 6.0 };
+const skinRx = /Head|Neck|Arm|Hand|Thumb|Index|Middle|Ring|Pinky/;
+function smallTex(t, size = 1024) { if (!t || !t.image) return null; const im = t.image, s = Math.min(size, im.width || size), c = document.createElement('canvas'); c.width = c.height = s; c.getContext('2d').drawImage(im, 0, 0, s, s); const nt = new THREE.CanvasTexture(c); nt.flipY = t.flipY; nt.wrapS = t.wrapS; nt.wrapT = t.wrapT; return nt; }
+async function bake(name, T) {
+  const o = await new FBXLoader().loadAsync('mixamo/' + name + '.fbx');
+  // wait for embedded textures to decode
+  const texs = []; o.traverse(m => { if (m.isMesh) (Array.isArray(m.material) ? m.material : [m.material]).forEach(mt => ['map', 'normalMap'].forEach(k => mt[k] && texs.push(mt[k]))); });
+  for (let i = 0; i < 200 && texs.some(t => !t.image || (t.image.complete === false) || !(t.image.width > 0)); i++) await new Promise(r => setTimeout(r, 100));
+  // height normalisation from the bind pose (T-pose), feet to head ≈ 1.80 m
+  o.updateMatrixWorld(true); const hb = new THREE.Box3(); o.traverse(m => { if (m.isSkinnedMesh && /Body/i.test(m.name)) hb.expandByObject(m); }); if (hb.isEmpty()) hb.setFromObject(o);
+  const unit = 1.80 / (hb.max.y - hb.min.y);
+  const clip = o.animations.find(a => a.duration > .1); const mixer = new THREE.AnimationMixer(o); mixer.clipAction(clip).play(); mixer.setTime(T);
+  o.updateMatrixWorld(true);
+  // FBX may duplicate the skeleton per mesh; only the first copy is animated → rebind every mesh to the animated bones (same bind pose)
+  const first = {}; o.traverse(n => { if (n.isBone && !first[n.name]) first[n.name] = n; });
+  o.traverse(m => { if (m.isSkinnedMesh) m.skeleton.bones = m.skeleton.bones.map(bn => first[bn.name] || bn); });
+  o.updateMatrixWorld(true);
+  const S = new THREE.Matrix4().makeScale(unit, unit, unit), v = new THREE.Vector3(), out = new THREE.Group(), skinParts = [];
+  const recs = []; const bw = nm => { const bn = Object.values(first).find(x => x.name.endsWith(nm)); const w = new THREE.Vector3(); bn.getWorldPosition(w); return w.applyMatrix4(S); };
+  const A0 = bw('Spine'), A1 = bw('Neck'), AX = A1.clone().sub(A0), AL = AX.lengthSq();
+  o.traverse(m => { if (!m.isSkinnedMesh) return;
+    if (/Hair|Eye|lash/i.test(m.name)) return;
+    const g0 = m.geometry, pos = g0.attributes.position, n = pos.count, P = new Float32Array(n * 3);
+    const si = g0.attributes.skinIndex, sw = g0.attributes.skinWeight, isSkin = new Uint8Array(n), isTorso = new Uint8Array(n), COL = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { v.fromBufferAttribute(pos, i); m.applyBoneTransform(i, v); v.applyMatrix4(m.matrixWorld).applyMatrix4(S); P.set([v.x, v.y, v.z], i * 3);
+      let best = 0, bw = -1; for (let k = 0; k < 4; k++) { const w = sw.getComponent(i, k); if (w > bw) { bw = w; best = si.getComponent(i, k); } }
+      isSkin[i] = skinRx.test(m.skeleton.bones[best].name) ? 1 : 0; isTorso[i] = /Spine/.test(m.skeleton.bones[best].name) ? 1 : 0;
+      let tw = 0; for (let k = 0; k < 4; k++) { const w = sw.getComponent(i, k); if (w > 0 && /Spine|Shoulder/.test(m.skeleton.bones[si.getComponent(i, k)].name)) tw += w; }
+      COL[i * 3] = tw; COL[i * 3 + 1] = (v.clone().sub(A0).dot(AX)) / AL; COL[i * 3 + 2] = 0; }
+    recs.push({ m, g0, P, isSkin, isTorso, COL, n, mats: Array.isArray(m.material) ? m.material : [m.material], idxAt: j => g0.index ? g0.index.array[j] : j }); });
+  // hash of all clothing vertices (2 cm cells) → a body triangle is hidden when every corner sits within 3 cm of clothing
+  const CELL = .02, H = new Map(), key = (x, y, z) => x + ',' + y + ',' + z;
+  for (const r of recs) if (!/Body$/i.test(r.m.name) && r.mats.length === 1) for (let i = 0; i < r.n; i++) { const x = Math.floor(r.P[i * 3] / CELL), y = Math.floor(r.P[i * 3 + 1] / CELL), z = Math.floor(r.P[i * 3 + 2] / CELL), k = key(x, y, z); (H.get(k) || H.set(k, []).get(k)).push(i * 3, r.P); }
+  const covered = (P, i) => { const x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2], cx = Math.floor(x / CELL), cy = Math.floor(y / CELL), cz = Math.floor(z / CELL);
+    for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) for (let c = -2; c <= 2; c++) { const L = H.get(key(cx + a, cy + b, cz + c)); if (!L) continue;
+      for (let q = 0; q < L.length; q += 2) { const Q = L[q + 1], o2 = L[q]; const dx = Q[o2] - x, dy = Q[o2 + 1] - y, dz = Q[o2 + 2] - z; if (dx * dx + dy * dy + dz * dz < .0009) return true; } } return false; };
+  for (const r of recs) { const { m, g0, P, isSkin, mats, idxAt, COL } = r;
+    const groups = g0.groups.length ? g0.groups : [{ start: 0, count: g0.index ? g0.index.count : r.n, materialIndex: 0 }];
+    const bodyMesh = /Body$/i.test(m.name), multi = mats.length > 1;
+    const cov = bodyMesh ? new Uint8Array(r.n).map((_, i) => covered(P, i) ? 1 : 0) : null;
+    for (const gr of groups) { const mat = mats[gr.materialIndex] || mats[0]; if (/lash|hair|eye/i.test(mat.name)) continue;
+      const clothTri = [], skinTri = [];
+      for (let j = gr.start; j < gr.start + gr.count; j += 3) { const a = idxAt(j), b = idxAt(j + 1), c = idxAt(j + 2);
+        if (bodyMesh) { if (!(cov[a] && cov[b] && cov[c])) skinTri.push(a, b, c); }
+        else if (multi) { if (isSkin[a] + isSkin[b] + isSkin[c] >= 2 && !/Hat|Cap/i.test(mat.name)) skinTri.push(a, b, c); else clothTri.push(a, b, c); }
+        else clothTri.push(a, b, c); }
+      const mk = (tri, uv) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(P, 3)); g.setAttribute('color', new THREE.BufferAttribute(COL, 3)); if (uv && g0.attributes.uv) g.setAttribute('uv', g0.attributes.uv); g.setIndex(tri); return g; };
+      if (clothTri.length) { const g = mk(clothTri, true); g.computeVertexNormals();
+        const cm = new THREE.MeshStandardMaterial({ name: 'cloth', map: smallTex(mat.map), normalMap: smallTex(mat.normalMap), roughness: .82, metalness: 0 });
+        if (cm.map) cm.map.colorSpace = THREE.SRGBColorSpace;
+        const mm = new THREE.Mesh(g, cm); mm.name = 'cloth_' + m.name; out.add(mm); }
+      if (skinTri.length) skinParts.push(mk(skinTri, false)); } }
+  // skin → faceted low-poly mask
+  if (skinParts.length) { let sg = BGU.mergeVertices(BGU.mergeGeometries(skinParts), 1e-4); const keep = .12;
+    sg.computeVertexNormals(); { const p = sg.attributes.position, nn = sg.attributes.normal; for (let i = 0; i < p.count; i++) p.setXYZ(i, p.getX(i) - nn.getX(i) * .004, p.getY(i) - nn.getY(i) * .004, p.getZ(i) - nn.getZ(i) * .004); sg.deleteAttribute('normal'); }
+    sg = new SimplifyModifier().modify(sg, Math.floor(sg.attributes.position.count * (1 - keep)));
+    sg = sg.index ? sg.toNonIndexed() : sg; if (sg.attributes.normal) sg.deleteAttribute('normal'); sg.computeVertexNormals();
+    const sm = new THREE.Mesh(sg, new THREE.MeshStandardMaterial({ name: 'skin', color: '#2f5bff', flatShading: true })); sm.name = 'skin'; out.add(sm); }
+  // hi-vis vest: torso triangles of the clothing, pushed out 2.5 cm, decimated + faceted (same look as the Fern body)
+  { const vparts = []; for (const r of recs) { if (/Body$/i.test(r.m.name)) continue; const tri = []; const N = r.g0.index ? r.g0.index.count : r.n;
+      for (let j = 0; j < N; j += 3) { const a = r.idxAt(j), b = r.idxAt(j + 1), c = r.idxAt(j + 2); if (r.isTorso[a] && r.isTorso[b] && r.isTorso[c] && !(r.isSkin[a] + r.isSkin[b] + r.isSkin[c] >= 2)) tri.push(a, b, c); }
+      if (tri.length) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(r.P, 3)); g.setIndex(tri); vparts.push(g.toNonIndexed()); } }
+    if (vparts.length) { let vg = BGU.mergeVertices(BGU.mergeGeometries(vparts), 1e-4); vg.computeVertexNormals();
+      const p = vg.attributes.position, nn = vg.attributes.normal; for (let i = 0; i < p.count; i++) p.setXYZ(i, p.getX(i) + nn.getX(i) * .025, p.getY(i) + nn.getY(i) * .025, p.getZ(i) + nn.getZ(i) * .025); vg.deleteAttribute('normal');
+      vg = new SimplifyModifier().modify(vg, Math.floor(p.count * .75)); vg = vg.toNonIndexed(); vg.computeVertexNormals();
+      const vm = new THREE.Mesh(vg, new THREE.MeshStandardMaterial({ name: 'vest', color: '#c8f02a', flatShading: true })); vm.name = 'vest'; out.add(vm); } }
+  // hard-hat frame from the head bone
+  { const hd = Object.values(first).find(x => /Head$/.test(x.name)), ht = Object.values(first).find(x => /HeadTop_End$/.test(x.name));
+    if (hd && ht) { const a = new THREE.Vector3(), b = new THREE.Vector3(), q = new THREE.Quaternion(); hd.getWorldPosition(a); ht.getWorldPosition(b); hd.getWorldQuaternion(q); a.applyMatrix4(S); b.applyMatrix4(S); out.userData.hat = { base: a.toArray(), top: b.toArray(), q: q.toArray() }; } }
+  // hand positions for props (shovel)
+  const hp = {}; for (const nm of ['LeftHand', 'RightHand']) { const bn = Object.values(first).find(x => x.name.endsWith(nm)); if (bn) { const w = new THREE.Vector3(); bn.getWorldPosition(w); w.applyMatrix4(S); hp[nm] = w.toArray(); } }
+  out.userData.hands = hp;
+  // full-body low-poly variants (Render Room lesson 2 'Spectacles/Neo' 0.3 and lesson 7 'Fern' ~0.2): everything joined, one material
+  if (window.FULL) { const parts = out.children.filter(c => c.name !== 'vest').map(c => { const g = c.geometry.clone(); for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'color') g.deleteAttribute(k); if (!g.attributes.color) g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 3), 3)); return g.index ? g : g; });
+    const merged = BGU.mergeVertices(BGU.mergeGeometries(parts.map(g => g.index ? g.toNonIndexed() : g)), 1e-4);
+    for (const [nm, keep] of [['full30', .3], ['full15', .15]]) { let fg = new SimplifyModifier().modify(merged.clone(), Math.floor(merged.attributes.position.count * (1 - keep))); fg = fg.toNonIndexed(); fg.computeVertexNormals();
+      const fm = new THREE.Mesh(fg, new THREE.MeshStandardMaterial({ name: nm, color: '#ffffff', flatShading: true })); fm.name = nm; fm.visible = true; out.add(fm); } }
+  out.children.forEach(c => { if (!c.name.startsWith('full') && c.geometry.attributes.color) c.geometry.deleteAttribute('color'); });
+  // feet on the ground
+  const bb = new THREE.Box3().setFromObject(out); out.children.forEach(c => c.geometry.translate(0, -bb.min.y, 0)); for (const k of ['LeftHand', 'RightHand']) if (out.userData.hands[k]) out.userData.hands[k][1] -= bb.min.y; if (out.userData.hat) { out.userData.hat.base[1] -= bb.min.y; out.userData.hat.top[1] -= bb.min.y; }
+  const glb = await new GLTFExporter().parseAsync(out, { binary: true, maxTextureSize: 1024 });
+  let s = ''; const u8 = new Uint8Array(glb); for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return { b64: btoa(s), tris: out.children.map(c => c.name + ':' + (c.geometry.index ? c.geometry.index.count / 3 : c.geometry.attributes.position.count / 3)) };
+}
+window.OUT = {}; for (const [n, T] of Object.entries(JOBS)) { try { window.OUT[n] = await bake(n, T); } catch (e) { window.OUT[n] = { err: e.message + ' ' + e.stack.slice(0, 300) }; } } window.DONE = true;
+</script></body></html>

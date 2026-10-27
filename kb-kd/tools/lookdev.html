@@ -1,0 +1,93 @@
+<!doctype html><html><head><style>html,body{margin:0;background:#000}</style><script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script></head><body>
+<script type="module">
+// Look-dev per blender-lighting-lookdev "character/portrait": soft key above-front, fill 1/3 opposite, rim behind; 85 mm; AgX
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { makePost } from '/core/three/post.js';
+const W = innerWidth, H = innerHeight;
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H); document.body.appendChild(r.domElement);
+r.toneMapping = THREE.AgXToneMapping; r.toneMappingExposure = 1.2; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#07080b');
+scene.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), .04).texture; scene.environmentIntensity = .08;
+const cam = new THREE.PerspectiveCamera(16, W / H, .1, 100);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ color: '#1b1c1f', roughness: .9 })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const key = new THREE.SpotLight('#fff1e2', 55, 30, .5, .8, 2); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -.0003; scene.add(key, key.target);
+const fill = new THREE.SpotLight('#b9c9ff', 14, 30, .7, 1, 2); scene.add(fill, fill.target);
+const rim = new THREE.SpotLight('#9fb8ff', 90, 30, .45, .7, 2); scene.add(rim, rim.target);
+function role(col, glow) { const m = new THREE.MeshPhysicalMaterial({ color: col, roughness: .35, clearcoat: .7, clearcoatRoughness: .3, emissive: col, emissiveIntensity: glow, flatShading: true });
+  m.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+    float fr = pow(1. - abs(dot(normalize(vViewPosition), normal)), 2.); totalEmissiveRadiance += mix(emissive, vec3(1.), .6) * fr * 1.4;`); }; return m; }
+const BLUE = role('#2f5bff', .3);
+const names = ['Remy_Digging', 'James_Inspect', 'Leonard_Idle', 'Brian_Phone', 'Remy_Crouch'], figs = [];
+for (const [i, n] of names.entries()) { const g = (await new GLTFLoader().loadAsync('figs/' + n + '.glb')).scene; g.userData.name = n;
+  g.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; if (o.name.startsWith('skin')) o.material = BLUE; else { o.material.metalness = 0; o.material.roughness = .85; } if (o.name.startsWith('full')) o.visible = false; } });
+  g.position.set((i - 2) * 1.25, 0, (i % 2) * .5); g.rotation.y = [.5, -.3, .2, -.6, .4][i]; scene.add(g); figs.push(g); }
+const post = makePost(r, scene, cam, W, H, { ssaa: 1, ao: true, aoAmt: .7, aoRadius: .4, aoScale: 1.2 });
+post.bloom.strength = .35; post.bloom.threshold = 1; post.vig.uniforms.amt.value = .5; post.vig.uniforms.contrast.value = .15;
+window.trio = () => { const sel = [3, 2, 4, 0]; figs.forEach((f, k) => { f.visible = sel.includes(k); }); [[3, -1.3, 0, -.35], [2, 0, 0, .15], [4, 1.25, .2, -.6], [0, 2.5, -.2, .9]].forEach(([k, x, z, r]) => { figs[k].position.set(x, 0, z); figs[k].rotation.y = r; });
+  return window.shot('custom', 0, new THREE.Vector3(.9, 1.35, 7.2), new THREE.Vector3(.6, .82, 0)); };
+window.solo = (i, az, d = 3.4, h = .8) => { figs.forEach((f, k) => f.visible = k === i); const f = figs[i]; const tgt = f.position.clone().add(new THREE.Vector3(0, h, 0)); const pos = tgt.clone().add(new THREE.Vector3(Math.sin(az) * d, .5, Math.cos(az) * d)); return window.shot('custom', i, pos, tgt); };
+window.shot = (mode, i = 0, P, T) => {
+  let tgt, pos;
+  if (mode === 'custom') { tgt = T; pos = P; cam.fov = 26; } else if (mode === 'line') { tgt = new THREE.Vector3(0, .85, .2); pos = new THREE.Vector3(.6, 1.4, 11.5); cam.fov = 16; }
+  else { const f = figs[i]; tgt = f.position.clone().add(new THREE.Vector3(0, mode === 'head' ? 1.45 : 1.0, 0)); const a = f.rotation.y + .45; const d = mode === 'head' ? 2.2 : 4.2;
+    pos = tgt.clone().add(new THREE.Vector3(Math.sin(a) * d, .25, Math.cos(a) * d)); cam.fov = mode === 'head' ? 14 : 18; }
+  cam.position.copy(pos); cam.lookAt(tgt); cam.updateProjectionMatrix();
+  const right = new THREE.Vector3().subVectors(pos, tgt).cross(new THREE.Vector3(0, 1, 0)).normalize(), back = new THREE.Vector3().subVectors(tgt, pos).setY(0).normalize();
+  key.position.copy(tgt).addScaledVector(right, -2.5).add(new THREE.Vector3(0, 3, 0)).addScaledVector(back, -2.5); key.target.position.copy(tgt);
+  fill.position.copy(tgt).addScaledVector(right, 3).add(new THREE.Vector3(0, 1, 0)).addScaledVector(back, -2); fill.target.position.copy(tgt);
+  rim.position.copy(tgt).addScaledVector(back, 3.5).addScaledVector(right, 1.5).add(new THREE.Vector3(0, 2.5, 0)); rim.target.position.copy(tgt);
+  [key.target, fill.target, rim.target].forEach(t => t.updateMatrixWorld());
+  post.dof.focus = pos.distanceTo(tgt); post.dof.aper = mode === 'line' || mode === 'custom' ? 1.5 : 5; post.dof.maxCoc = 10; post.dof.aoAmt = .7;
+  post.composer.render(); return 'ok';
+};
+
+// Render Room lesson 2/7 recipes
+const M = {
+  kaktus: null,
+  neo: new THREE.MeshStandardMaterial({ color: '#2d5bff', roughness: .5, flatShading: true }),
+  fern: new THREE.MeshStandardMaterial({ color: '#eceae6', roughness: .6, flatShading: true }),
+  nexpo: new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: .6, emissive: '#ffffff', emissiveIntensity: .55, flatShading: true }),
+  rim: role('#c2442f', .05),
+  imperial: new THREE.MeshStandardMaterial({ color: '#8f9399', metalness: 1, roughness: .55, flatShading: true }),
+  lemmino: new THREE.MeshStandardMaterial({ color: '#ff2a1a', roughness: .5, emissive: '#ff2a1a', emissiveIntensity: 2.2, flatShading: true }),
+  thinker: new THREE.MeshStandardMaterial({ color: '#e9e7e2', roughness: .45, flatShading: true }),
+};
+const glossy = new THREE.MeshPhysicalMaterial({ color: '#1f5cff', roughness: .15, clearcoat: 1, flatShading: true });
+M.glossy = glossy;
+window.style = (name) => { figs.forEach(f => f.traverse(o => { if (!o.isMesh) return; if (!o.userData.orig) o.userData.orig = o.material;
+  const full = o.name.startsWith('full'), skin = o.name.startsWith('skin'), cloth = o.name.startsWith('cloth');
+  if (name === 'kaktus' || name === 'thinker') { o.visible = cloth || skin; if (skin) o.material = name === 'kaktus' ? BLUE : M.thinker; if (cloth) o.material = o.userData.orig; }
+  else { const want = name === 'fern' ? 'full15' : 'full30'; o.visible = o.name === want || o.name.startsWith('tool'); if (o.visible && !o.name.startsWith('tool')) o.material = M[name]; } })); };
+// shovel for the digger (from baked hand positions)
+figs.forEach(f => { let hands = null; f.traverse(o => { if (o.userData && o.userData.hands) hands = o.userData.hands; }); if (!hands || !hands.LeftHand || !hands.RightHand || !/Dig/.test(f.userData.name || '')) return;
+  const a = new THREE.Vector3(...hands.RightHand), b = new THREE.Vector3(...hands.LeftHand), dir = b.clone().sub(a).normalize();
+  const top = a.clone().addScaledVector(dir, -.25), bot = b.clone().addScaledVector(dir, .95), mid = top.clone().add(bot).multiplyScalar(.5), len = top.distanceTo(bot);
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.017, .017, len, 10), new THREE.MeshStandardMaterial({ color: '#6b5238', roughness: .7 })); shaft.name = 'tool_shaft';
+  shaft.position.copy(mid); shaft.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir); f.children[0].add(shaft);
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(.24, .3, .02), new THREE.MeshStandardMaterial({ color: '#5d6164', roughness: .35, metalness: .8 })); blade.name = 'tool_blade'; blade.position.copy(bot.clone().addScaledVector(dir, .12)); blade.quaternion.copy(shaft.quaternion); f.children[0].add(blade); });
+
+// worker kit (as in the first bridge scenes): hi-vis vest with retro-reflective bands + hard hat
+function vestMat(g) { g.computeBoundingBox(); const y0 = g.boundingBox.min.y, y1 = g.boundingBox.max.y;
+  const m = new THREE.MeshStandardMaterial({ color: '#c6ef1c', roughness: .7, flatShading: true, emissive: '#c6ef1c', emissiveIntensity: .06 });
+  m.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vY;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvY = position.y;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vY;').replace('#include <color_fragment>', `#include <color_fragment>
+      float h = (vY - ${y0.toFixed(4)}) / ${(y1 - y0).toFixed(4)}; float band = step(abs(h - .28), .045) + step(abs(h - .58), .045); band = clamp(band, 0., 1.);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.85), band);`).replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+      totalEmissiveRadiance += vec3(.9) * band * pow(max(dot(normal, normalize(-vViewPosition)), 0.), 3.) * .9;`); }; return m; }
+const HATM = new THREE.MeshStandardMaterial({ color: '#f2b705', roughness: .35, flatShading: true });
+figs.forEach(f => { let hat = null; f.traverse(o => { if (o.userData && o.userData.hat) hat = o.userData.hat; }); const root = f.children[0];
+  root.traverse(o => { if (o.name === 'vest') o.material = vestMat(o.geometry); });
+  if (!hat) return; const base = new THREE.Vector3(...hat.base), top = new THREE.Vector3(...hat.top), up = top.clone().sub(base).normalize();
+  const g = new THREE.Group(); g.name = 'kit_hat'; const dome = new THREE.Mesh(new THREE.SphereGeometry(.128, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), HATM); dome.scale.set(1, .9, 1.12);
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(.155, .158, .012, 12), HATM); brim.scale.set(1, 1, 1.18); brim.position.z = .025;
+  const ridge = new THREE.Mesh(new THREE.BoxGeometry(.03, .03, .26), HATM); ridge.position.y = .11;
+  g.add(dome, brim, ridge); g.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.name = 'kit_hat'; } });
+  g.position.copy(top).addScaledVector(up, -.075); const q = new THREE.Quaternion(...hat.q); const yAx = new THREE.Vector3(0, 1, 0).applyQuaternion(q);
+  g.quaternion.copy(q).premultiply(new THREE.Quaternion().setFromUnitVectors(yAx, up)); root.add(g); });
+const _style = window.style;
+window.style = (name) => { if (name !== 'fernkit') { _style(name); figs.forEach(f => f.traverse(o => { if (o.isMesh && (o.name === 'vest' || o.name === 'kit_hat')) o.visible = false; })); return; }
+  _style('fern'); figs.forEach(f => f.traverse(o => { if (o.isMesh && (o.name === 'vest' || o.name === 'kit_hat')) o.visible = true; })); };
+window.READY = true;
+</script></body></html>
