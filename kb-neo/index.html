@@ -98,12 +98,14 @@ water.rotation.x = -Math.PI / 2; water.position.set(0, .02, (Z0 + Z1) / 2); wate
 
 // ── bridge: continuous through-truss of built-up I members ──────────────────
 const P17 = -183, DECKY = 56, TZ = 11.3, NP = 52, X0 = -BX - 6, DX = (2 * BX + 12) / NP;
+const SEGS = cb => { const S3 = 3 * DX; for (let xa = X0; xa < -X0 - 1e-3; xa += S3) cb(xa, Math.min(-X0, xa + S3)); };
 const topH = x => { const a = Math.abs(x); return a < 183 ? 26 + 24 * Math.pow(a / 183, 2) : 2 + 48 * Math.pow(Math.max(0, 1 - (a - 183) / 219), 1.25); };
 const IB = (() => { const sh = new THREE.Shape(), f = .18, w = .16; sh.moveTo(-.5, -.5); sh.lineTo(.5, -.5); sh.lineTo(.5, -.5 + f); sh.lineTo(w / 2, -.5 + f); sh.lineTo(w / 2, .5 - f); sh.lineTo(.5, .5 - f); sh.lineTo(.5, .5); sh.lineTo(-.5, .5); sh.lineTo(-.5, .5 - f); sh.lineTo(-w / 2, .5 - f); sh.lineTo(-w / 2, -.5 + f); sh.lineTo(-.5, -.5 + f); sh.closePath();
   const g = new THREE.ExtrudeGeometry(sh, { depth: 1, bevelEnabled: true, bevelThickness: .01, bevelSize: .01, bevelSegments: 1 }); g.translate(0, 0, -.5); g.rotateX(Math.PI / 2); g.computeVertexNormals(); return g; })();
 const BXG = new RoundedBoxGeometry(1, 1, 1, 2, .08), CYL = new THREE.CylinderGeometry(.5, .5, 1, 12);
 const M4 = new THREE.Matrix4(), BX_ = V3(), BY_ = V3(), BZ_ = V3();
-function inst(geo, list, mat, cast = true) { const im = new THREE.InstancedMesh(geo, mat, list.length);
+function inst(geo, list, mat, cast = true) { list = list.flatMap(it => { const [a, b] = it, n = Math.ceil(Math.abs(b.x - a.x) / (DX * 1.001)); if (n < 2) return [it]; const r2 = []; for (let k = 0; k < n; k++) r2.push([a.clone().lerp(b, k / n), a.clone().lerp(b, (k + 1) / n), ...it.slice(2)]); return r2; });
+  const im = new THREE.InstancedMesh(geo, mat, list.length);
   list.forEach(([a, b, w, d, ref], i) => { BY_.copy(b).sub(a); const len = BY_.length(); BY_.normalize(); BZ_.copy(ref || V3(0, 0, 1)); BZ_.addScaledVector(BY_, -BZ_.dot(BY_)); if (BZ_.lengthSq() < 1e-6) BZ_.set(1, 0, 0); BZ_.normalize(); BX_.crossVectors(BY_, BZ_);
     M4.makeBasis(BX_.multiplyScalar(w), BY_.clone().multiplyScalar(len), BZ_.clone().multiplyScalar(d ?? w)); M4.setPosition(a.clone().add(b).multiplyScalar(.5)); im.setMatrixAt(i, M4); });
   im.castShadow = cast; im.receiveShadow = true; scene.add(im); return im; }
@@ -138,9 +140,9 @@ const LAMPS = [];
     inst(BXG, tray, WHITE2, false); for (let x = X0 + DX * .5; x < X0 + NP * DX; x += DX * 3) for (const z of [-9.9, 9.9]) add(new RoundedBoxGeometry(.5, .6, .3, 2, .05), WHITE2, x, DECKY - 1.6, z); }
   inst(IB, chords, STEEL); inst(IB, webs, STEEL); inst(BXG, lace, STEEL2, false); inst(BXG, plates, STEEL2); inst(IB, trans, STEEL2); inst(new THREE.CylinderGeometry(.5, .5, 1, 6), fine, STEEL2, false); inst(new THREE.CylinderGeometry(.5, .5, 1, 8), welds, STEEL2, false);
   { const WG = new THREE.CylinderGeometry(.11, .11, .02, 14); WG.rotateX(Math.PI / 2); const wm = new THREE.InstancedMesh(WG, STEEL2, washers.length); washers.forEach((p, i) => { M4.makeTranslation(p.x, p.y, p.z); wm.setMatrixAt(i, M4); }); scene.add(wm); }
-  const L = 2 * BX + 12; add(new THREE.BoxGeometry(L, .9, 21), [CONC, CONC, ASPH, CONC, CONC, CONC], 0, DECKY - .25, 0);
-  const jg = (() => { const sh = new THREE.Shape(); sh.moveTo(-.3, 0); sh.lineTo(-.3, .08); sh.lineTo(-.18, .25); sh.lineTo(-.09, .9); sh.lineTo(.09, .9); sh.lineTo(.18, .25); sh.lineTo(.3, .08); sh.lineTo(.3, 0); const e = new THREE.ExtrudeGeometry(sh, { depth: L, bevelEnabled: false }); e.translate(0, 0, -L / 2); e.rotateY(Math.PI / 2); return e; })();
-  for (const z of [-10.2, -.1, 10.2]) add(jg, CONC, 0, DECKY + .2, z);
+  const L = 2 * BX + 12; SEGS((xa, xb) => add(new THREE.BoxGeometry(xb - xa, .9, 21), [CONC, CONC, ASPH, CONC, CONC, CONC], (xa + xb) / 2, DECKY - .25, 0));
+  const jgG = len => { const sh = new THREE.Shape(); sh.moveTo(-.3, 0); sh.lineTo(-.3, .08); sh.lineTo(-.18, .25); sh.lineTo(-.09, .9); sh.lineTo(.09, .9); sh.lineTo(.18, .25); sh.lineTo(.3, .08); sh.lineTo(.3, 0); const e = new THREE.ExtrudeGeometry(sh, { depth: len, bevelEnabled: false }); e.translate(0, 0, -len / 2); e.rotateY(Math.PI / 2); return e; };
+  SEGS((xa, xb) => { const g = jgG(xb - xa); for (const z of [-10.2, -.1, 10.2]) add(g, CONC, (xa + xb) / 2, DECKY + .2, z); });
   const posts = []; for (let x = -L / 2; x < L / 2; x += 2) for (const z of [-10.7, 10.7]) posts.push([V3(x, DECKY + 1.1, z), V3(x, DECKY + 2.1, z), .08, .08]);
   for (const z of [-10.7, 10.7]) for (const y of [1.6, 2.1]) posts.push([V3(-L / 2, DECKY + y, z), V3(L / 2, DECKY + y, z), .07, .07]);
   inst(CYL, posts, STEEL2, false);
@@ -166,7 +168,7 @@ const Y = DECKY + .2;
   const PAINT = c => new THREE.MeshStandardMaterial({ color: c, roughness: .6, polygonOffset: true, polygonOffsetFactor: -2 });
   const strip = (x, z, len, w, m) => { const o = new THREE.Mesh(new THREE.PlaneGeometry(len, w), m); o.rotation.x = -Math.PI / 2; o.position.set(x, Y + .004, z); o.receiveShadow = true; scene.add(o); };
   const WP = PAINT('#e2e0d8'), YP = PAINT('#d9a51c'), L = 2 * BX + 12;
-  for (const s of [-1, 1]) { strip(0, s * .65, L, .15, YP); strip(0, s * 8.3, L, .15, WP); for (let x = -L / 2; x < L / 2; x += 12.2) strip(x + 1.5, s * 4.45, 3, .13, WP); }
+  for (const s of [-1, 1]) { SEGS((xa, xb) => { strip((xa + xb) / 2, s * .65, xb - xa, .15, YP); strip((xa + xb) / 2, s * 8.3, xb - xa, .15, WP); }); for (let x = -L / 2; x < L / 2; x += 12.2) strip(x + 1.5, s * 4.45, 3, .13, WP); }
   const blob = (rad, seed) => { const g = new THREE.CircleGeometry(rad, 32), p = g.attributes.position; for (let i = 1; i < p.count; i++) { const a = Math.atan2(p.getY(i), p.getX(i)), k = 1 + .22 * Math.sin(a * 3 + seed) + .12 * Math.sin(a * 7 + seed * 2.3); p.setXY(i, p.getX(i) * k, p.getY(i) * k); } return g; };
   const PATCH = new THREE.MeshStandardMaterial({ color: '#4a4b4e', roughness: .38, polygonOffset: true, polygonOffsetFactor: -3, map: ASPH.map, normalMap: ASPH.normalMap });
   const HOLE = new THREE.MeshStandardMaterial({ color: '#232325', roughness: .95, polygonOffset: true, polygonOffsetFactor: -4 });
@@ -320,7 +322,9 @@ const POL = [];
     const red = new THREE.MeshStandardMaterial({ color: '#300', emissive: '#ff2a1a', emissiveIntensity: 0 }), blue = new THREE.MeshStandardMaterial({ color: '#003', emissive: '#2a5bff', emissiveIntensity: 0 });
     const topY = b.max.y + .05; const r1 = add(new THREE.BoxGeometry(.5, .14, .26), red, x, topY, z - .3), b1 = add(new THREE.BoxGeometry(.5, .14, .26), blue, x, topY, z + .3); r1.rotation.y = b1.rotation.y = ry;
     const pr = new THREE.PointLight('#ff2a1a', 0, 18, 2), pb = new THREE.PointLight('#2a5bff', 0, 18, 2); pr.position.set(x, topY + .3, z - .3); pb.position.set(x, topY + .3, z + .3); scene.add(pr, pb);
-    POL.push({ red, blue, pr, pb, x, z }); } }
+    const gm = c => new THREE.PointsMaterial({ color: c, size: 16 * H / 1080, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+    const gr = gm('#ff3020'), gb = gm('#3a6bff'); for (const [mm, dz] of [[gr, -.3], [gb, .3]]) { const pg2 = new THREE.BufferGeometry().setFromPoints([V3(x, topY + .2, z + dz)]); const pp = new THREE.Points(pg2, mm); pp.renderOrder = 8; scene.add(pp); }
+    POL.push({ red, blue, pr, pb, x, z, gr, gb }); } }
 // Dali: wheelhouse window strip + deck floods (go out at 1:29:?? → blackout beat)
 const SHIPL = []; const WHP = { c: V3(0, 0, 18), top: 29, front: 8, w: 42 };
 { const wt = canvasTex(512, 32, (c, w, h) => { c.fillStyle = '#000'; c.fillRect(0, 0, w, h); for (let i = 0; i < 32; i++) { c.fillStyle = (i * 7) % 5 ? '#fff' : '#8a8a8a'; c.fillRect(i * 16 + 2, 4, 12, 24); } });
@@ -359,27 +363,69 @@ for (let i = 0; i < NB; i++) { const x = xOfB(i), g2 = new THREE.Group(); g2.pos
   const band = mesh(new THREE.CylinderGeometry(1.75, 1.75, 8, 40, 1, true), bmat, g2, 0, WY, bz); band.rotation.x = Math.PI / 2; band.rotation.y = Math.PI / 2; mesh(new THREE.TorusGeometry(1.75, .12, 6, 20), bmat, g2, 0, WY, bz - 4); }
 
 // ── shot table (seconds) ──
+// ── collapse of the continuous truss (vertex shader, per 3-panel segment), splash, funnel smoke ──
+const COLT = { value: -1 }, COLZ = [];
+{ const zb = new THREE.Box3(), mats = new Set();
+  scene.traverse(o => { if (!o.isMesh || o === water) return; let sh2 = false; o.traverseAncestors(a => { if (a === ship) sh2 = true; }); if (sh2) return; zb.setFromObject(o); if (zb.max.y < DECKY - 8 || zb.min.x > 244 || zb.max.x < -244) return; COLZ.push(o); (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m && mats.add(m)); });
+  const GLSL = `uniform float uColT;
+vec3 colDeform(vec3 p, float sx){ float SEG=${(3 * DX).toFixed(4)}; float s=floor((sx-(${X0.toFixed(3)}))/SEG); float xc=${X0.toFixed(3)}+(s+.5)*SEG; float h=fract(sin(s*12.9898+3.1)*43758.5453);
+ float d=abs(xc-(${P17.toFixed(1)}))/190.*1.15+h*.22; float t=max(0.,uColT-d); float drop=min(4.9*t*t,74.);
+ float ang=min(t*.42,.85)*(h>.5?1.:-1.)*(.35+.65*h); float roll=min(t*.22,.4)*(h-.5);
+ vec3 q=p-vec3(xc,${DECKY.toFixed(1)},0.); float c=cos(ang),sn=sin(ang); q.xy=vec2(c*q.x-sn*q.y,sn*q.x+c*q.y); float c2=cos(roll),s2=sin(roll); q.yz=vec2(c2*q.y-s2*q.z,s2*q.y+c2*q.z);
+ p=q+vec3(xc,${DECKY.toFixed(1)},0.); p.y-=drop; return p; }`;
+  for (const m of mats) { const ob = m.onBeforeCompile, ok = m.customProgramCacheKey?.bind(m);
+    m.onBeforeCompile = (sh, rr) => { ob && ob.call(m, sh, rr); sh.uniforms.uColT = COLT; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + GLSL).replace('#include <project_vertex>', `#include <project_vertex>
+if (uColT > 0.) { vec4 cwp = vec4(transformed, 1.);
+#ifdef USE_INSTANCING
+cwp = instanceMatrix * cwp;
+#endif
+vec4 corg = vec4(0., 0., 0., 1.);
+#ifdef USE_INSTANCING
+corg = instanceMatrix * corg;
+#endif
+corg = modelMatrix * corg; cwp = modelMatrix * cwp; if (corg.y > ${(DECKY - 8).toFixed(1)} && abs(corg.x) < 244.) { cwp.xyz = colDeform(cwp.xyz, corg.x); mvPosition = viewMatrix * cwp; gl_Position = projectionMatrix * mvPosition; } }`); };
+    m.customProgramCacheKey = () => (ok ? ok() : '') + '|col'; m.needsUpdate = true; } }
+const setCollapse = t => { COLT.value = t; const on = t > 0; COLZ.forEach(o => { if (o.userData.cs0 === undefined) o.userData.cs0 = o.castShadow; o.castShadow = on ? false : o.userData.cs0; }); };
+// splash: each segment throws spray when it reaches the water (same timing as the shader)
+const SPL = (() => { const SEG = 3 * DX, N = Math.ceil((488) / SEG) + 2, per = 260, pos = [], a1 = [], a2 = []; let k = 0;
+  for (let s2 = 0; s2 < 40; s2++) { const xc = X0 + (s2 + .5) * SEG; if (Math.abs(xc) > 244) continue; const h = (Math.sin(s2 * 12.9898 + 3.1) * 43758.5453) % 1, hh2 = h - Math.floor(h);
+    const d = Math.abs(xc - P17) / 190 * 1.15 + hh2 * .22, ti = d + Math.sqrt(DECKY / 4.9);
+    for (let i = 0; i < per; i++) { const r3 = Math.random, ang = r3() * 6.283, sp = 4 + r3() * 16; pos.push(xc + (r3() - .5) * SEG, .5, (r3() - .5) * 24); a1.push(Math.cos(ang) * sp * .6, 10 + r3() * 26, Math.sin(ang) * sp * .6); a2.push(ti + r3() * .5, 1.5 + r3() * 4.5); } }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('vel', new THREE.Float32BufferAttribute(a1, 3)); g.setAttribute('tsz', new THREE.Float32BufferAttribute(a2, 2));
+  const m = new THREE.ShaderMaterial({ uniforms: { uT: COLT, uPx: { value: H / 1080 } }, transparent: true, depthWrite: false,
+    vertexShader: `attribute vec3 vel; attribute vec2 tsz; uniform float uT, uPx; varying float vA; void main(){ float a=uT-tsz.x; vec3 p=position; if(a<0.||a>3.2){vA=0.;} else { p+=vel*a; p.y-=4.9*a*a; p.y=max(p.y,.3); vA=(1.-a/3.2)*.85; } vec4 mv=modelViewMatrix*vec4(p,1.); gl_Position=projectionMatrix*mv; gl_PointSize=tsz.y*(1.+a*1.6)*uPx*900./-mv.z; }`,
+    fragmentShader: `varying float vA; void main(){ vec2 c=gl_PointCoord-.5; float r=length(c); if(r>.5||vA<=0.) discard; gl_FragColor=vec4(vec3(.93,.96,.98), vA*smoothstep(.5,.1,r)); }` });
+  const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.renderOrder = 7; scene.add(pts); return pts; })();
+// funnel smoke (ship-local, drifts with the wind); uSm = seconds since the puff started
+const SMT = { value: -1 };
+const SMOKE = (() => { const N = 900, pos = [], a = []; for (let i = 0; i < N; i++) { pos.push((Math.random() - .5) * 3, 0, (Math.random() - .5) * 3); a.push(Math.random() * 8, .6 + Math.random() * .8, Math.random()); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('ar', new THREE.Float32BufferAttribute(a, 3));
+  const m = new THREE.ShaderMaterial({ uniforms: { uT: SMT, uPx: { value: H / 1080 } }, transparent: true, depthWrite: false,
+    vertexShader: `attribute vec3 ar; uniform float uT, uPx; varying float vA; varying float vS; void main(){ float a=uT-ar.x*.9; vec3 p=position; if(a<0.){vA=0.;} else { float l=mod(a,8.); p+=vec3(l*2.2*ar.y, l*4.5*ar.y+l*l*.15, l*1.2*(ar.z-.3)); p.xz+=vec2(sin(l*1.3+ar.z*6.),cos(l*1.1+ar.x))*l*.6; vA=smoothstep(0.,.6,l)*(1.-l/8.)*.75; vS=ar.z; }
+ vec4 mv=modelViewMatrix*vec4(p,1.); gl_Position=projectionMatrix*mv; gl_PointSize=(4.+mod(max(a,0.),8.)*5.)*uPx*900./-mv.z; }`,
+    fragmentShader: `varying float vA; varying float vS; void main(){ vec2 c=gl_PointCoord-.5; float r=length(c); if(r>.5||vA<=0.) discard; gl_FragColor=vec4(vec3(.07+.06*vS), vA*smoothstep(.5,.0,r)); }` });
+  const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.position.set(0, 39, 17.5); ship.add(pts); return pts; })();
 // Shot table = calque of the donor hook (neo «Deepwater Horizon» 0:00–1:32, cuts measured 29.10: 0 · 10.3 · 12.7 · 19.7 · 21.4 · 24.4 · 28.0 · 32.0 · 33.5 · 34.6 · 37.6 · 39.8 · 42.5 · 44.4 · 64.6 · 73.6 · 89.1).
-// Cuts sit on Jeff VO phrase gaps (silencedetect). dis = dissolve-in length (donor opens with one long plan of dissolves).
+// Cuts 1–2 frames before the first word after a pause ≥0.18 s (rule M-39; Jeff VO silencedetect). dis = dissolve-in length (donor opens with one long plan of dissolves).
 const SH = [
-  { a: 0, b: 3.7, k: 'bridgeWide' },            // «At 1:27 in the morning,»              ← donor 0–10.3 long open (dissolves)
-  { a: 3.7, b: 7.45, k: 'police', dis: 1.0 },   // «the police at both ends … radio.»
-  { a: 7.45, b: 9.6, k: 'deckRun' },            // «They have 77 seconds.»                ← 10.3–12.7 (2.4 s)
-  { a: 9.6, b: 14.45, k: 'crew' },              // «Out on the bridge, eight men …»       ← 12.7–19.7 aerial (7 s) → crane down
-  { a: 14.45, b: 16.0, k: 'daliTop' },          // «The ship the radio is talking about»  ← 19.7–21.4 satellite (1.7 s)
-  { a: 16.0, b: 17.6, k: 'daliIn' },            // «… is the Dali.»
-  { a: 17.6, b: 20.0, k: 'scale' },             // «It is 984 feet long,»                 ← 21.4–24.4 (3.0 s)
-  { a: 20.0, b: 22.0, k: 'scale2' },            // «nearly three football fields,»        ← 24.4–28.0
-  { a: 22.0, b: 25.4, k: 'stacks' },            // «and it carries 4,680 containers.»     ← 28.0–32.0 (4.0 s)
-  { a: 25.4, b: 27.25, k: 'wheelhouse' },       // «Less than three minutes earlier,»     ← 32.0–33.5 quick pair
-  { a: 27.25, b: 29.05, k: 'lightsOut' },       // «every light on that ship went out.»   ← 33.5–34.6
-  { a: 29.05, b: 30.55, k: 'black' },           //  1.5 s black, no voice
-  { a: 30.55, b: 33.85, k: 'blockWide' },       // «Twenty months later, investigators found the reason:» ← 34.6–37.6 first 3D object
-  { a: 33.85, b: 35.4, k: 'wire' },             // «one signal wire,»                     ← 37.6–39.8
-  { a: 35.4, b: 36.8, k: 'gap' },               // «loose in its terminal,»               ← 39.8–42.5
-  { a: 36.8, b: 39.25, k: 'band' },             // «held back by the label …»             ← 42.5–44.4
-  { a: 39.25, b: 45.3, k: 'timeline' },         // «This is the story of that wire, second by second, …» ← 44.4–64.6 one long plan (promise)
-  { a: 45.3, b: 49.5, k: 'title' }];            //  ONE WIRE                              ← donor title inside the long plan, ~0:56
+  { a: 0, b: 5.0, k: 'bridgeWide' },             // 0–3.3 Google Earth dive over Baltimore (comped in ffmpeg, dissolves in at 2.5–3.3) · «At 1:27 … the police at both ends» ← donor 0–10.3 long open with dissolves
+  { a: 5.0, b: 7.59, k: 'police', dis: .8 },     // «… get an order on the radio.»
+  { a: 7.59, b: 10.22, k: 'collapse' },           // «They have 77 seconds.» flash-forward: the span falls ← donor 10.3–12.7 the disaster itself
+  { a: 10.22, b: 14.61, k: 'crew' },              // «Out on the bridge, eight men …»       ← 12.7–19.7 aerial (7 s) → crane down
+  { a: 14.61, b: 16.0, k: 'daliTop' },          // «The ship the radio is talking about»  ← 19.7–21.4 satellite (1.7 s)
+  { a: 16.0, b: 17.62, k: 'daliIn', dis: .6 },            // «… is the Dali.»
+  { a: 17.62, b: 20.05, k: 'scale' },             // «It is 984 feet long,»                 ← 21.4–24.4 (3.0 s)
+  { a: 20.05, b: 21.99, k: 'scale2' },            // «nearly three football fields,»        ← 24.4–28.0
+  { a: 21.99, b: 25.57, k: 'stacks' },            // «and it carries 4,680 containers.»     ← 28.0–32.0 (4.0 s)
+  { a: 25.57, b: 27.29, k: 'wheelhouse' },       // «Less than three minutes earlier,»     ← 32.0–33.5 quick pair
+  { a: 27.29, b: 29.05, k: 'lightsOut' },       // «every light on that ship went out.»   ← 33.5–34.6
+  { a: 29.05, b: 30.71, k: 'black' },           //  1.5 s black, no voice
+  { a: 30.71, b: 33.98, k: 'blockWide' },       // «Twenty months later, investigators found the reason:» ← 34.6–37.6 first 3D object
+  { a: 33.98, b: 35.45, k: 'wire' },             // «one signal wire,»                     ← 37.6–39.8
+  { a: 35.45, b: 36.8, k: 'gap' },               // «loose in its terminal,»               ← 39.8–42.5
+  { a: 36.8, b: 39.26, k: 'band' },             // «held back by the label …»             ← 42.5–44.4
+  { a: 39.26, b: 45.26, k: 'timeline' },         // «This is the story of that wire, second by second, …» ← 44.4–64.6 one long plan (promise)
+  { a: 45.26, b: 49.5, k: 'title' }];            //  ONE WIRE                              ← donor title inside the long plan, ~0:56
 const T_OUT = 29.05; window.SH = SH;
 const hx = () => hud.getContext('2d');
 const txt = (str, x, y, px, w8 = 500, a = 1, align = 'left', col = '#fff', ls = 0) => { if (a <= 0) return; const x2 = hx(), k = H / 1080; x2.save(); x2.globalAlpha = a; x2.fillStyle = col; x2.font = `${w8} ${px * k}px Inter, "Helvetica Neue", Arial`; x2.letterSpacing = `${ls * k}px`; x2.textAlign = align; x2.textBaseline = 'alphabetic'; x2.shadowColor = 'rgba(0,0,0,.35)'; x2.shadowBlur = 8 * k; x2.fillText(str, x, y); x2.restore(); };
@@ -397,10 +443,12 @@ function drawMacro(k, u, t) { const bx = xOfB(BAD); let pos, tgt, fp, ap;
   MP.dof.focus = pos.distanceTo(fp); MP.dof.aper = ap; MP.dof.maxCoc = 10; MP.composer.render(); }
 function drawWorld(k, u, t) {
   const ph = (t * 1.6) % 1, rOn = (ph < .07 || (ph > .12 && ph < .19)), bOn = (ph > .5 && ph < .57) || (ph > .62 && ph < .69);
-  POL.forEach(p => { p.red.emissiveIntensity = rOn ? 6 : .1; p.blue.emissiveIntensity = bOn ? 6 : .1; p.pr.intensity = rOn ? 60 : 0; p.pb.intensity = bOn ? 60 : 0; });
+  POL.forEach(p => { p.red.emissiveIntensity = rOn ? 6 : .1; p.blue.emissiveIntensity = bOn ? 6 : .1; p.pr.intensity = rOn ? 60 : 0; p.pb.intensity = bOn ? 60 : 0; const far = k === 'bridgeWide' || k === 'collapse'; p.gr.opacity = far && rOn ? 1 : 0; p.gb.opacity = far && bOn ? 1 : 0; });
+  setCollapse(-1); SMT.value = -1; AOOFF = false;
   SC.fields.visible = false; SC.fields.position.y = 0; trail.visible = false; placeShip(-168, 40, -.16); shipLightsOn(t < T_OUT); sun.intensity = H0.sunI; scene.environmentIntensity = H0.envI;
   let pos, tgt, fov = 34, ap = 2.5, focus = null;
-  if (k === 'bridgeWide') { pos = lv([-520, 300, 700], [-485, 268, 660], eio(u)); tgt = V3(-20, 0, 90); fov = 30; ap = 0; }
+  if (k === 'bridgeWide') { pos = lv([-60, 420, 1040], [-50, 300, 820], eio(u)); tgt = V3(-30, 10, 0); fov = 30; ap = 0; }
+  else if (k === 'collapse') { setCollapse(1.15 + (t - 7.59)); AOOFF = true; pos = lv([-470, 70, 360], [-450, 64, 335], eio(u)); tgt = V3(-90, 26, 10); fov = 34; ap = 1.5; }
   else if (k === 'police') { pos = lv([-239.5, 57.8, 11.4], [-242, 57.5, 9.4], eio(u)); tgt = V3(-251, 57, 5.8); fov = 32; ap = 4; focus = [-250, 57, 6.2]; }
   else if (k === 'deckRun') { const x = -12 - 14 * eio(u); pos = V3(x, 59.6, 2.6); tgt = V3(x - 60, 57.2, 6.4); fov = 36; ap = 2; }
   else if (k === 'crew') { const c = eio(u); pos = lv([-45, 96, 3], [-37.5, 60.6, 0.9], c); tgt = lv([-48.5, 56, 6.4], [-53.5, 56.4, 7.1], c); fov = 40; ap = 3 * c; focus = [-47, 56.6, 6.6]; }
@@ -413,16 +461,17 @@ function drawWorld(k, u, t) {
   else if (k === 'wheelhouse' || k === 'lightsOut') { const nk = .32; sun.intensity = H0.sunI * nk; scene.environmentIntensity = H0.envI * nk;
     if (k === 'wheelhouse') { pos = ship.localToWorld(lv([70, 34, -130], [60, 33, -112], eio(u))); tgt = ship.localToWorld(V3(0, 22, 12)); fov = 34; ap = 1.5; }
     else { pos = ship.localToWorld(lv([24, 35, -44], [18, 32, -34], eio(u))); tgt = ship.localToWorld(V3(0, 24, 9)); fov = 34; ap = 3; focus = tgt.toArray(); } }
-  else if (k === 'timeline') { const pu = eio(seg(t, 39.6, 45.2)), [bx, bz, ang] = PATH(pu); placeShip(bx, bz, ang);
+  else if (k === 'timeline') { const pu = eio(seg(t, 39.6, 45.2)), [bx, bz, ang] = PATH(pu); placeShip(bx, bz, ang); SMT.value = 2 + (t - 39.26);
     pos = lv([-165, 980, 330], [-170, 880, 296], eio(u)); tgt = V3(-170, 0, 185); fov = 34; ap = 0; shipLightsOn(false); }
   cam.position.copy(pos); cam.fov = fov; cam.lookAt(tgt); cam.updateProjectionMatrix(); water.material.uniforms.time.value = 4 + t * .35;
-  post.dof.focus = cam.position.distanceTo(focus ? V3(...focus) : tgt); post.dof.aper = ap; post.dof.maxCoc = ap ? 8 : 0; post.composer.render(); }
+  if (post.dof.ao0 === undefined) post.dof.ao0 = post.dof.aoAmt; post.dof.aoAmt = AOOFF ? 0 : post.dof.ao0; post.dof.focus = cam.position.distanceTo(focus ? V3(...focus) : tgt); post.dof.aper = ap; post.dof.maxCoc = ap ? 8 : 0; post.composer.render(); }
+let AOOFF = false;
 const draw = (k, u, t) => MAC[k] ? drawMacro(k, u, t) : drawWorld(k, u, t);
 // HUD — a frame gets a label OR a number (never text that only repeats the voice)
 function hudFor(k, t) {
-  if (k === 'bridgeWide') labelA(LB.bridge(), 'Francis Scott Key Bridge', 1, env(t, .5, 3.7, .5, .3));
+  if (k === 'bridgeWide') { labelA(V3(-250, 60, 6.2), 'Police', -1, env(t, 3.4, 5.0, .3, .2)); labelA(V3(250, 60, -6.2), 'Police', 1, env(t, 3.4, 5.0, .3, .2)); }
   if (k === 'police') labelA(V3(-250, 58.3, 6.2), 'Police · south end', -1, env(t, 4.9, 7.45, .3, .2));
-  if (k === 'deckRun') bigA(env(t, 7.6, 9.6, .3, .15), '77', 'seconds', 'from the order to close the bridge to impact');
+  if (k === 'collapse') bigA(env(t, 7.75, 10.22, .3, .15), '77', 'seconds', 'from the order to close the bridge to impact');
   if (k === 'crew') labelA(V3(-50, 58.6, 7.2), '8 men · road crew', 1, env(t, 11.6, 14.45, .35, .2));
   if (k === 'daliIn') labelA(LB.dali(), 'Dali', 1, env(t, 16.2, 17.6, .25, .1));
   if (k === 'scale') bigA(env(t, 18.0, 20.0, .3, .1), '984', 'ft', 'nearly three football fields');
