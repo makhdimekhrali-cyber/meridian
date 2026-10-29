@@ -304,8 +304,8 @@ const scr = p => { const v = p.clone().project(cam); return [(v.x + 1) / 2 * W, 
 function label(wp, text, dx = 1, gap = 40) { const x = hud.getContext('2d'), k = H / 1080; const [px, py, ok] = scr(wp); if (!ok) return; const sx = px + dx * gap * k; x.save(); x.strokeStyle = 'rgba(255,255,255,.9)'; x.fillStyle = '#fff'; x.lineWidth = 1.5 * k;
   x.beginPath(); x.moveTo(sx, py); x.lineTo(sx + dx * 34 * k, py); x.stroke(); x.font = `500 ${30 * k}px Inter, "Helvetica Neue", Arial`; x.letterSpacing = `${1 * k}px`; x.textBaseline = 'middle'; x.textAlign = dx > 0 ? 'left' : 'right'; x.fillText(text.toUpperCase(), sx + dx * 46 * k, py); x.restore(); }
 const LB = { pier: () => V3(P17, 30, 26), dali: () => { const b = new THREE.Box3().setFromObject(SC.wrap || ship), c = b.getCenter(V3()); return V3(c.x, b.max.y + 4, c.z); }, bridge: () => V3(60, DECKY + topH(60) + 3, 12) };
-window.big = (num, unit, sub, x0 = .06, y0 = .86, grad = true) => { const x = hud.getContext('2d'), k = H / 1080, X = W * x0, Y0 = H * y0; x.save(); if (grad) { const gr = x.createLinearGradient(0, H * .55, 0, H); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.42)'); x.fillStyle = gr; x.fillRect(0, H * .55, W, H * .45); }
-  x.fillStyle = '#fff'; x.shadowColor = 'rgba(0,0,0,.35)'; x.shadowBlur = 8 * k; x.font = '600 ' + 150 * k + 'px Inter, "Helvetica Neue", Arial'; x.fillText(num, X, Y0); const w = x.measureText(num).width; x.font = '400 ' + 48 * k + 'px Inter, "Helvetica Neue", Arial'; x.fillText(unit.toUpperCase(), X + w + 22 * k, Y0); x.font = '400 ' + 26 * k + 'px Inter, "Helvetica Neue", Arial'; x.globalAlpha = .85; x.fillText(sub.toUpperCase(), X + 4 * k, Y0 + 48 * k); x.restore(); return 'ok'; };
+window.big = (num, unit, sub, x0 = .06, y0 = .86, grad = true) => { const x = hud.getContext('2d'), k = H / 1080, X = W * x0, Y0 = H * y0; x.save(); if (grad) { const top = y0 < .5, gr = top ? x.createLinearGradient(0, 0, 0, H * .45) : x.createLinearGradient(0, H * .55, 0, H); gr.addColorStop(top ? 1 : 0, 'rgba(0,0,0,0)'); gr.addColorStop(top ? 0 : 1, 'rgba(0,0,0,.45)'); x.fillStyle = gr; top ? x.fillRect(0, 0, W, H * .45) : x.fillRect(0, H * .55, W, H * .45); }
+  x.fillStyle = '#fff'; x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 16 * k; x.font = '600 ' + 150 * k + 'px Inter, "Helvetica Neue", Arial'; x.fillText(num, X, Y0); const w = x.measureText(num).width; x.font = '400 ' + 48 * k + 'px Inter, "Helvetica Neue", Arial'; x.fillText(unit.toUpperCase(), X + w + 22 * k, Y0); x.font = '400 ' + 26 * k + 'px Inter, "Helvetica Neue", Arial'; x.globalAlpha = .85; x.fillText(sub.toUpperCase(), X + 4 * k, Y0 + 48 * k); x.restore(); return 'ok'; };
 // shot(pos, target, fov, aperture, labels, focusPoint?) — DOF on by default (neo look)
 window.shot = (pos, tgt, fov = 30, aper = 2.5, labels = [], focus) => { cam.position.set(...pos); cam.fov = fov; cam.lookAt(...tgt); cam.updateProjectionMatrix(); water.material.uniforms.time.value = 4.0;
   post.dof.focus = cam.position.distanceTo(V3(...(focus || tgt))); post.dof.aper = aper; post.dof.maxCoc = aper ? 8 : 0; post.composer.render();
@@ -335,7 +335,7 @@ const FLOODS = []; for (const zz of [-100, -40, 60, 115]) { const sp = new THREE
   const hm = new THREE.MeshStandardMaterial({ color: '#e7e3da', roughness: .75 }); const hb = new THREE.Mesh(new RoundedBoxGeometry(21.2, 15.2, 11.8, 2, .3), hm); hb.position.set(0, 7.5 + 7.6, 17.1); hb.castShadow = hb.receiveShadow = true; ship.add(hb);
   const hb2 = new THREE.Mesh(new RoundedBoxGeometry(40.8, 7.0, 17.5, 2, .3), hm); hb2.position.set(0, 7.5 + 3.5, 18.6); hb2.castShadow = hb2.receiveShadow = true; ship.add(hb2); }
 const WHL = new THREE.PointLight('#ffcf8a', 0, 70, 1.6); WHL.position.set(0, 26, 2); ship.add(WHL);
-const shipLightsOn = on => { WHL.intensity = on ? 900 : 0; SHIPL.forEach(m => m.color.set('#ffd9a0').multiplyScalar(on ? 5 : 0)); FLOODS.forEach(f => f.intensity = on ? 1800 : 0); };
+const shipLightsOn = on => { WHL.intensity = on ? 300 : 0; SHIPL.forEach(m => m.color.set('#ffc46a').multiplyScalar(on ? 7 : 0)); FLOODS.forEach(f => f.intensity = on ? 1800 : 0); };
 // trail for the timeline (top view)
 const trail = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .85, depthWrite: false })); trail.rotation.x = -Math.PI / 2; trail.renderOrder = 6; trail.visible = false; scene.add(trail);
 const PATH = u => { const bz = 85 - u * 82, bx = -150 - 18 * u, ang = -.04 - .12 * u; return [bx, bz, ang]; };
@@ -423,8 +423,7 @@ const SH = [
   { a: 10.22, b: 14.61, k: 'crew' },     // «Out on the bridge, eight men …»  top-down, they don't know
   { a: 14.61, b: 17.62, k: 'approach' }, // «The ship … is the Dali.»  Kuleshov: crew + the bow coming at them
   { a: 17.62, b: 25.57, k: 'scale' },    // «984 feet … 4,680 containers.»
-  { a: 25.57, b: 29.6, k: 'wheelhouse' },// «… every light … went out.»
-  { a: 29.6, b: 30.71, k: 'black' },
+  { a: 25.57, b: 30.71, k: 'wheelhouse' },// «… every light … went out.»  lights die on «out», then hold the half-dark (no black — Mahdi 29.10)
   { a: 30.71, b: 31.97, k: 'F2' },       // «Twenty months later,»  FOOTAGE: DVIDS 918042 0:48 — the wreck draped over the bow (daylight, the aftermath)
   { a: 31.97, b: 33.98, k: 'F3' },       // «investigators found the reason:»  FOOTAGE: DVIDS 918042 0:13 — drone top-down over the wreckage on deck
   { a: 33.98, b: 39.26, k: 'push' },     // «one signal wire, loose …, held back by the label …»  3D detail
@@ -433,7 +432,15 @@ const SH = [
 const T_OUT = 28.9; window.SH = SH;
 const hx = () => hud.getContext('2d');
 const txt = (str, x, y, px, w8 = 500, a = 1, align = 'left', col = '#fff', ls = 0) => { if (a <= 0) return; const x2 = hx(), k = H / 1080; x2.save(); x2.globalAlpha = a; x2.fillStyle = col; x2.font = `${w8} ${px * k}px Inter, "Helvetica Neue", Arial`; x2.letterSpacing = `${ls * k}px`; x2.textAlign = align; x2.textBaseline = 'alphabetic'; x2.shadowColor = 'rgba(0,0,0,.35)'; x2.shadowBlur = 8 * k; x2.fillText(str, x, y); x2.restore(); };
-const labelA = (wp, text, dx, a, c2 = cam) => { if (a <= 0) return; const x2 = hx(); x2.save(); x2.globalAlpha = a; const v = wp.clone().project(c2); if (v.z < 1) { const k = H / 1080, px = (v.x + 1) / 2 * W, py = (1 - v.y) / 2 * H, sx = px + dx * 40 * k; x2.strokeStyle = '#fff'; x2.lineWidth = 1.5 * k; x2.beginPath(); x2.moveTo(sx, py); x2.lineTo(sx + dx * 34 * k, py); x2.stroke(); x2.fillStyle = '#fff'; x2.font = `500 ${30 * k}px Inter, "Helvetica Neue", Arial`; x2.letterSpacing = `${1 * k}px`; x2.textBaseline = 'middle'; x2.textAlign = dx > 0 ? 'left' : 'right'; x2.fillText(text.toUpperCase(), sx + dx * 46 * k, py); } x2.restore(); };
+// label colour follows the background under it (white on dark, near-black on light) so it never melts into the frame
+const LUMC = document.createElement('canvas'); LUMC.width = 64; LUMC.height = 36; const LUMX = LUMC.getContext('2d', { willReadFrequently: true });
+const lumAt = (x0, y0, w, h) => { try { LUMX.drawImage(r.domElement, x0 / W * r.domElement.width, y0 / H * r.domElement.height, w / W * r.domElement.width, h / H * r.domElement.height, 0, 0, 16, 8); const d = LUMX.getImageData(0, 0, 16, 8).data; let s2 = 0; for (let i = 0; i < d.length; i += 4) s2 += d[i] * .3 + d[i + 1] * .59 + d[i + 2] * .11; return s2 / (d.length / 4) / 255; } catch (e) { return 0; } };
+const labelA = (wp, text, dx, a, c2 = cam) => { if (a <= 0) return; const x2 = hx(); x2.save(); x2.globalAlpha = a; const v = wp.clone().project(c2); if (v.z < 1) { const k = H / 1080, px = (v.x + 1) / 2 * W, py = (1 - v.y) / 2 * H, sx = px + dx * 40 * k;
+    x2.font = `500 ${30 * k}px Inter, "Helvetica Neue", Arial`; x2.letterSpacing = `${1 * k}px`; const tw = x2.measureText(text.toUpperCase()).width, tx0 = dx > 0 ? sx + 46 * k : sx - 46 * k - tw;
+    const light = lumAt(Math.min(sx, tx0) - 10 * k, py - 24 * k, tw + 100 * k, 48 * k) > .32, col = '#fff';
+    if (light) { x2.fillStyle = 'rgba(12,14,17,.62)'; const bx0 = Math.min(sx, tx0) - 14 * k, bw = tw + 46 * k + 34 * k + 28 * k; x2.beginPath(); x2.roundRect(dx > 0 ? sx - 14 * k : tx0 - 14 * k, py - 22 * k, tw + 46 * k + 28 * k, 44 * k, 6 * k); x2.fill(); }
+    x2.shadowColor = 'rgba(0,0,0,.75)'; x2.shadowBlur = 12 * k; x2.strokeStyle = col; x2.lineWidth = 2 * k; x2.beginPath(); x2.moveTo(sx, py); x2.lineTo(sx + dx * 34 * k, py); x2.stroke();
+    x2.fillStyle = col; x2.textBaseline = 'middle'; x2.textAlign = dx > 0 ? 'left' : 'right'; x2.fillText(text.toUpperCase(), sx + dx * 46 * k, py); } x2.restore(); };
 const bigA = (a, num, unit, sub, x0 = .06, y0 = .86, grad = true) => { if (a <= 0) return; const x2 = hx(); x2.save(); x2.globalAlpha = a; x2.translate(0, (1 - eo(a)) * 18); window.big(num, unit, sub, x0, y0, grad); x2.restore(); };
 const fade = document.createElement('canvas'); fade.width = W; fade.height = H; const fx = fade.getContext('2d');
 const MAC = { probe: 1, push: 1 };
@@ -465,22 +472,22 @@ function drawWorld(k, u, t) {
   else if (k === 'count') { pos = lv([-253.4, 58.35, 4.2], [-253.0, 58.28, 4.45], ln(u)); tgt = V3(-250.3, 57.75, 6.2); fov = 30; ap = 7; focus = [-250.3, 57.75, 6.2]; }
   else if (k === 'crew') { pos = lv([-44, 80, 3.8], [-43.2, 76, 3.6], ln(u)); tgt = V3(-48.5, 56, 6.4); fov = 40; ap = 1.5; focus = [-48, 56.6, 6.4]; }
   else if (k === 'approach') { placeShip(APP[0], 92 - 7 * u, APP[2]); SMT.value = 3 + (t - 14.61); pos = V3(-176, 8.3, -31); tgt = V3(-157, 21, 95); fov = 24; ap = 2; focus = [-160, 20, 70]; }
-  else if (k === 'scale') { placeShip(APP[0], 85, APP[2]); SC.fields.visible = true; const fa = seg(t, 17.9, 18.9); SC.fields.position.y = -(1 - eo(fa)) * 3;
-    pos = ship.localToWorld(lv([118, 8, -150], [215, 95, -128], ln(u))); tgt = ship.localToWorld(lv([20, 10, -40], [25, 0, -10], ln(u))); fov = 30; ap = 1.5; }
+  else if (k === 'scale') { placeShip(APP[0], 85, APP[2]); const fa = seg(t, 17.9, 18.9); SC.fields.visible = fa > 0; SC.fields.position.y = -(1 - eo(fa)) * 3;
+    pos = ship.localToWorld(lv([118, 8, -150], [215, 95, -128], ln(u))); tgt = ship.localToWorld(lv([20, 24, -40], [25, 16, -10], ln(u))); fov = 30; ap = 1.5; }
   else if (k === 'wheelhouse') { const nk = t < T_OUT ? .14 : .04; sun.intensity = H0.sunI * nk; scene.environmentIntensity = H0.envI * nk; EXPO = t < T_OUT ? .5 : .14;
-    placeShip(APP[0], 85, APP[2]); pos = ship.localToWorld(lv([52, 36, -104], [44, 35, -90], ln(u))); tgt = ship.localToWorld(V3(0, 24.4, 9)); fov = 34; ap = 2.5; focus = tgt.toArray(); }
+    placeShip(APP[0], 85, APP[2]); pos = ship.localToWorld(lv([30, 41, -44], [26, 39.5, -36], ln(u))); tgt = ship.localToWorld(V3(0, 24.4, 9)); fov = 34; ap = 2.5; focus = tgt.toArray(); }
   else if (k === 'trace') { const pu = mv(seg(t, 39.5, 45.1), 0, 1), [bx, bz, ang] = PATH(pu); placeShip(bx, bz, ang); SMT.value = 2 + (t - 39.26); shipLightsOn(false);
-    pos = V3(-160, 640, 150); tgt = V3(-162, 0, 120); fov = 34; ap = 0; }
+    pos = V3(-70, 560, 92); tgt = V3(-70, 0, 90); fov = 28; ap = 0; }
   cam.position.copy(pos); cam.fov = fov; cam.lookAt(tgt); cam.updateProjectionMatrix(); water.material.uniforms.time.value = 4 + t * .35;
   if (post.dof.ao0 === undefined) post.dof.ao0 = post.dof.aoAmt; post.dof.aoAmt = AOOFF ? 0 : post.dof.ao0; post.dof.focus = cam.position.distanceTo(focus ? V3(...focus) : tgt); post.dof.aper = ap; post.dof.maxCoc = ap ? 8 : 0; if (r.e0 === undefined) r.e0 = r.toneMappingExposure; r.toneMappingExposure = r.e0 * EXPO; post.composer.render(); r.toneMappingExposure = r.e0; }
 let AOOFF = false, EXPO = 1;
 const draw = (k, u, t) => MAC[k] ? drawMacro(k, u, t) : drawWorld(k, u, t);
 // HUD — a frame gets a label OR a number (never text that only repeats the voice)
 function hudFor(k, t) {   // numbers from FACTS.md; labels only where they point at a thing the voice does not name
-  if (k === 'count') bigA(env(t, 7.75, 10.22, .3, .15), '77', 'seconds', 'from the order to close the bridge to impact');
-  if (k === 'scale') { bigA(env(t, 18.1, 21.9, .3, .2), '984', 'ft', 'nearly three football fields'); const n = Math.round(4680 * eo(seg(t, 22.2, 24.2))); bigA(env(t, 22.1, 25.57, .3, .15), n.toLocaleString('en-US'), 'containers', 'on board the Dali'); }
+  if (k === 'count') bigA(env(t, 7.75, 10.22, .3, .15), '77', 'seconds', 'from the order to close the bridge to impact', .06, .2);
+  if (k === 'scale') { bigA(env(t, 18.1, 21.9, .3, .2), '984', 'ft', 'nearly three football fields', .06, .2); const n = Math.round(4680 * eo(seg(t, 22.2, 24.2))); bigA(env(t, 22.1, 25.57, .3, .15), n.toLocaleString('en-US'), 'containers', 'on board the Dali', .06, .2); }
   if (k === 'probe') txt('NTSB FINAL REPORT · DECEMBER 2025', 56 * H / 1080, 86 * H / 1080, 24, 500, env(t, 31.0, 33.98, .4, .15), 'left', '#e6e9ec', 2);
-  if (k === 'push') { labelA(V3(xOfB(BAD), WY + 1.4, FACE + 24), 'Signal wire', 1, env(t, 34.1, 35.5, .25, .1), mcam); labelA(V3(xOfB(BAD), WY + .5, FACE + 1.5), 'Loose in its terminal', -1, env(t, 35.6, 36.9, .25, .1), mcam); labelA(V3(xOfB(BAD) + 1.5, WY + 1.9, FACE + 9), 'Label band', 1, env(t, 37.0, 39.2, .25, .15), mcam); }
+  if (k === 'push') { labelA(V3(xOfB(BAD) - 1.4, WY, FACE + 13), 'Signal wire', -1, env(t, 34.1, 35.5, .25, .1), mcam); labelA(V3(xOfB(BAD), WY + .5, FACE + 1.5), 'Loose in its terminal', -1, env(t, 35.6, 36.9, .25, .1), mcam); labelA(V3(xOfB(BAD) + 1.8, WY, FACE + 7), 'Label band', 1, env(t, 37.0, 39.2, .25, .15), mcam); }
   if (k === 'trace') { const x2 = hx(), kk = H / 1080, pu = eio(seg(t, 39.5, 45.1)); x2.save(); x2.strokeStyle = 'rgba(255,255,255,.9)'; x2.lineWidth = 3 * kk; x2.setLineDash([10 * kk, 7 * kk]); x2.beginPath();
       for (let q = 0; q <= 40; q++) { const uu = pu * q / 40, [px, pz] = PATH(uu), v = V3(px, 1, pz).project(cam), sx = (v.x + 1) / 2 * W, sy = (1 - v.y) / 2 * H; q ? x2.lineTo(sx, sy) : x2.moveTo(sx, sy); } x2.stroke(); x2.restore();
     labelA(V3(-152, 1, 95 - .25 * 92 + 40), 'Second blackout · 0.2 mi', 1, env(t, 39.8, 42.2, .3, .2)); labelA(V3(-160, 1, 40), 'Bridge closed · 1:27:53', 1, env(t, 42.3, 44.3, .3, .2)); labelA(V3(P17, 20, 14), 'Pier 17', -1, env(t, 44.4, 45.26, .25, .05)); }
