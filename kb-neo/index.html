@@ -109,7 +109,7 @@ function inst(geo, list, mat, cast = true) { const im = new THREE.InstancedMesh(
   im.castShadow = cast; im.receiveShadow = true; scene.add(im); return im; }
 const LAMPS = [];
 {
-  const chords = [], webs = [], lace = [], plates = [], trans = [], fine = [];
+  const chords = [], webs = [], lace = [], plates = [], trans = [], fine = [], welds = [], washers = [];
   const top = x => V3(x, DECKY + topH(x), 0), bot = x => V3(x, DECKY - .6, 0);
   for (const z of [-TZ, TZ]) { const zz = V3(0, 0, z);
     for (let i = 0; i < NP; i++) { const x0 = X0 + i * DX, x1 = x0 + DX;
@@ -119,7 +119,8 @@ const LAMPS = [];
         const L = a.distanceTo(b), n = Math.max(2, Math.floor(L / 1.1)), dir = b.clone().sub(a).normalize(), side = V3(0, 0, 1).cross(dir).normalize();
         for (let k = 0; k < n; k++) for (const f of [-.56, .56]) lace.push([a.clone().addScaledVector(dir, (k / n) * L).addScaledVector(side, (k % 2 ? .38 : -.38) * w).add(V3(0, 0, f)), a.clone().addScaledVector(dir, ((k + 1) / n) * L).addScaledVector(side, (k % 2 ? -.38 : .38) * w).add(V3(0, 0, f)), .07, .03, V3(0, 0, 1)]); }
       for (const p of [top(x0), bot(x0)]) for (const f of [-.82, .82]) { const c = p.clone().add(zz).add(V3(0, 0, f)); plates.push([c.clone().add(V3(0, -1.7, 0)), c.clone().add(V3(0, 1.7, 0)), 3.6, .06, V3(0, 0, 1)]);
-        for (let k = 0; k < 6; k++) for (let j = 0; j < 4; j++) fine.push([c.clone().add(V3(-1.4 + k * .56, -1.2 + j * .8, f > 0 ? .05 : -.05)), c.clone().add(V3(-1.4 + k * .56, -1.2 + j * .8, f > 0 ? .13 : -.13)), .09, .09, V3(1, 0, 0)]); } }
+        if (Math.abs(x0 + 50) < 70) { const wx = f > 0 ? .07 : -.07; for (const yy of [-1.7, 1.7]) welds.push([c.clone().add(V3(-1.8, yy, wx)), c.clone().add(V3(1.8, yy, wx)), .05, .05, V3(0, 0, 1)]); for (const xx of [-1.8, 1.8]) welds.push([c.clone().add(V3(xx, -1.7, wx)), c.clone().add(V3(xx, 1.7, wx)), .05, .05, V3(0, 0, 1)]); for (let k = 0; k < 6; k++) for (let j = 0; j < 4; j++) washers.push(c.clone().add(V3(-1.4 + k * .56, -1.2 + j * .8, f > 0 ? .065 : -.065))); }
+        for (let k = 0; k < 6; k++) for (let j = 0; j < 4; j++) fine.push([c.clone().add(V3(-1.4 + k * .56, -1.2 + j * .8, f > 0 ? .06 : -.06)), c.clone().add(V3(-1.4 + k * .56, -1.2 + j * .8, f > 0 ? .16 : -.16)), .13, .13, V3(1, 0, 0)]); } }
     const x = X0 + NP * DX; webs.push([bot(x).add(zz), top(x).add(zz), .9, 1.1, V3(0, 0, 1)]); }
   for (let i = 0; i <= NP; i++) { const x0 = X0 + i * DX, h = topH(x0);
     trans.push([V3(x0, DECKY - 2.6, -TZ), V3(x0, DECKY - 2.6, TZ), 2.2, .7, V3(1, 0, 0)]);
@@ -135,7 +136,8 @@ const LAMPS = [];
     const rim = new THREE.InstancedMesh(RG, STEEL2, riv.length); riv.forEach((p, i) => { M4.makeTranslation(p.x, p.y, p.z); rim.setMatrixAt(i, M4); }); scene.add(rim);
     const tray = []; for (const z of [-9.9, 9.9]) tray.push([V3(X0, DECKY - 1.1, z), V3(X0 + NP * DX, DECKY - 1.1, z), .35, .2, V3(0, 0, 1)], [V3(X0, DECKY - 1.45, z), V3(X0 + NP * DX, DECKY - 1.45, z), .12, .12, V3(0, 0, 1)]);
     inst(BXG, tray, WHITE2, false); for (let x = X0 + DX * .5; x < X0 + NP * DX; x += DX * 3) for (const z of [-9.9, 9.9]) add(new RoundedBoxGeometry(.5, .6, .3, 2, .05), WHITE2, x, DECKY - 1.6, z); }
-  inst(IB, chords, STEEL); inst(IB, webs, STEEL); inst(BXG, lace, STEEL2, false); inst(BXG, plates, STEEL2); inst(IB, trans, STEEL2); inst(CYL, fine, STEEL2, false);
+  inst(IB, chords, STEEL); inst(IB, webs, STEEL); inst(BXG, lace, STEEL2, false); inst(BXG, plates, STEEL2); inst(IB, trans, STEEL2); inst(new THREE.CylinderGeometry(.5, .5, 1, 6), fine, STEEL2, false); inst(new THREE.CylinderGeometry(.5, .5, 1, 8), welds, STEEL2, false);
+  { const WG = new THREE.CylinderGeometry(.11, .11, .02, 14); WG.rotateX(Math.PI / 2); const wm = new THREE.InstancedMesh(WG, STEEL2, washers.length); washers.forEach((p, i) => { M4.makeTranslation(p.x, p.y, p.z); wm.setMatrixAt(i, M4); }); scene.add(wm); }
   const L = 2 * BX + 12; add(new THREE.BoxGeometry(L, .9, 21), [CONC, CONC, ASPH, CONC, CONC, CONC], 0, DECKY - .25, 0);
   const jg = (() => { const sh = new THREE.Shape(); sh.moveTo(-.3, 0); sh.lineTo(-.3, .08); sh.lineTo(-.18, .25); sh.lineTo(-.09, .9); sh.lineTo(.09, .9); sh.lineTo(.18, .25); sh.lineTo(.3, .08); sh.lineTo(.3, 0); const e = new THREE.ExtrudeGeometry(sh, { depth: L, bevelEnabled: false }); e.translate(0, 0, -L / 2); e.rotateY(Math.PI / 2); return e; })();
   for (const z of [-10.2, -.1, 10.2]) add(jg, CONC, 0, DECKY + .2, z);
@@ -203,7 +205,10 @@ const Y = DECKY + .2;
   const hatOn = (who, color) => { const h = who.userData.hat; if (!HAT || !h) return; const base = V3(...h.base), top = V3(...h.top), up = top.clone().sub(base).normalize(), q = new THREE.Quaternion(...h.q);
     const fwd = V3(0, 0, 1).applyQuaternion(q); fwd.addScaledVector(up, -fwd.dot(up)).normalize(); const xa = V3().crossVectors(up, fwd);
     const m = new THREE.Mesh(HAT, new THREE.MeshStandardMaterial({ color, roughness: .32, metalness: 0 })); m.castShadow = true; m.matrixAutoUpdate = false;
-    const pos = top.clone().addScaledVector(up, -(window.HATDROP ?? .13)); m.matrix.makeBasis(xa, up, window.HATFLIP ? fwd.clone().negate() : fwd).setPosition(pos); who.add(m); };
+    const pos = top.clone().addScaledVector(up, -(window.HATDROP ?? .13)); m.matrix.makeBasis(xa, up, window.HATFLIP ? fwd.clone().negate() : fwd).setPosition(pos); who.add(m);
+    const gp = who.userData.grips; if (gp) for (const k of ['LeftHand', 'RightHand']) { const w = V3(...who.userData.hands[k]), g2 = V3(...gp[k]); const dir = g2.clone().sub(w).normalize();
+      const gl = new THREE.Mesh(GLOVE, GLOVEM); gl.castShadow = true; gl.position.copy(w).lerp(g2, .55); gl.quaternion.setFromUnitVectors(V3(0, 1, 0), dir); who.add(gl); } };
+  const GLOVE = new THREE.SphereGeometry(1, 12, 8); GLOVE.scale(.052, .085, .04); const GLOVEM = new THREE.MeshStandardMaterial({ color: '#3b3a36', roughness: .85, flatShading: true });
   const face = (o, tx2, tz) => { o.rotation.y = Math.atan2(tx2 - o.position.x, tz - o.position.z); };
   const inHands = (who, name, ext, flip) => { if (!who.userData.hands || !P[name]) return; const hs = who.userData.grips || who.userData.hands, a = V3(...hs.RightHand), b = V3(...hs.LeftHand), dir = b.clone().sub(a).normalize(); if (dir.y < -.05) ext = Math.min(ext, (b.y - .12) / -dir.y); const top = a.clone().addScaledVector(dir, -.3), bot = b.clone().addScaledVector(dir, ext);
     const sm = P[name].clone(); sm.geometry = sm.geometry.clone(); const gg = sm.geometry; gg.computeBoundingBox(); const c = gg.boundingBox.getCenter(V3()); gg.translate(-c.x, -c.y, -c.z); gg.computeBoundingBox(); const hx = gg.boundingBox.max.x;
@@ -218,9 +223,14 @@ const Y = DECKY + .2;
       const rim = new THREE.Mesh(rimG, rimM); rim.rotation.x = -Math.PI / 2; rim.scale.set(1.3, 1, 1); rim.position.set(tip.x, Y + .006, tip.z); rim.receiveShadow = true; scene.add(rim);
       const chunk = new THREE.MeshStandardMaterial({ color: '#2b2b2d', roughness: .9, flatShading: true }); for (let i = 0; i < 18; i++) { const a = hash(i * 3.7) * 6.28, d = .45 + hash(i * 1.3) * .35, sz = .012 + hash(i * 9.1) * .028; const ch = add(new THREE.DodecahedronGeometry(sz, 0), chunk, tip.x + Math.cos(a) * d * 1.3, Y + sz * .6, tip.z + Math.sin(a) * d); ch.rotation.set(i, i * 2, i * 3); }
       const fresh = new THREE.Mesh(blob(.3, 7.7), new THREE.MeshStandardMaterial({ color: '#101012', roughness: .35, polygonOffset: true, polygonOffsetFactor: -4 })); fresh.rotation.x = -Math.PI / 2; fresh.position.set(tip.x + .25, Y + .008, tip.z + .1); scene.add(fresh); window.TIP = tip; }
+    { // dust / grime decal over the work zone, plus loose crumbs
+      const dustT = canvasTex(512, 512, (x, w, h) => { x.clearRect(0, 0, w, h); for (let i = 0; i < 2600; i++) { const a = Math.random() * 6.28, rr = Math.pow(Math.random(), .6) * w * .48; x.globalAlpha = .05 + Math.random() * .12; x.fillStyle = Math.random() < .7 ? '#1a1a1a' : '#8a857a'; const sz = 2 + Math.random() * 9; x.fillRect(w / 2 + Math.cos(a) * rr, h / 2 + Math.sin(a) * rr, sz, sz * (.4 + Math.random())); } });
+      for (const [x, z, sx] of [[-47, 6.6, 7], [-55.5, 6.4, 6], [-62, 6.2, 8]]) { const d = new THREE.Mesh(new THREE.PlaneGeometry(sx, 3.6), new THREE.MeshStandardMaterial({ map: dustT, transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -5 })); d.rotation.x = -Math.PI / 2; d.position.set(x, Y + .009, z); d.receiveShadow = true; d.renderOrder = 1; scene.add(d); }
+      const CR = new THREE.DodecahedronGeometry(1, 0), crm = new THREE.InstancedMesh(CR, new THREE.MeshStandardMaterial({ color: '#2a2a2c', roughness: .9, flatShading: true }), 420); const q = new THREE.Quaternion(), e = new THREE.Euler();
+      const CC = [[tip.x, tip.z, .8], [-55.5, 6.6, 1.1], [-63, 6.1, 1.3], [-61.5, 6.2, 2.0]]; for (let i = 0; i < 420; i++) { const [cx, cz, cr] = CC[i % 4], a2 = hash(i * 1.7) * 6.28, rd = Math.pow(hash(i * 3.1), 1.8) * cr; const x = cx + Math.cos(a2) * rd * 1.3, z = Math.min(8.1, Math.max(4.9, cz + Math.sin(a2) * rd)), sz = .008 + Math.pow(hash(i * 7.3), 3) * .026; e.set(i, i * 1.3, i * .7); q.setFromEuler(e); M4.compose(V3(x, Y + sz * .5, z), q, V3(sz, sz * .7, sz)); crm.setMatrixAt(i, M4); } crm.receiveShadow = true; scene.add(crm); }
     const crouch = await fig('Remy_Crouch'); crouch.position.set(-54.6, Y, 5.4); scene.add(crouch); face(crouch, -55.5, 6.6); hatOn(crouch, '#f1c21b');
     const pushN = (await CACHE.match('/asset/fig_Pushing.glb')) ? 'Pushing' : 'Leonard_Idle';
-    const wb = await fig(pushN); wb.position.set(-49.6, Y, 8.1); scene.add(wb); face(wb, -47.2, 6.2); hatOn(wb, '#ff7a1a');
+    const wb = await fig(pushN); wb.position.set(-49.6, Y, 8.1); scene.add(wb); face(wb, -47.2, 6.2); hatOn(wb, '#f1c21b');
     const wbar = piece('WheelBarrow-01', 1.5, 'max'); if (wbar) asphaltLoad(wbar);
     if (wbar && pushN === 'Pushing' && wb.userData.hands) { // Mixamo 'Wheelbarrow Idle' (Leonard): handles in the hands, tray ahead of him
       // pivot on the wheel, handles lifted to the hands (checked side-on 28.10: rotY +π/2 = handles toward him, pivot tilt +0.36)
@@ -228,7 +238,15 @@ const Y = DECKY + .2;
     else if (wbar) { wbar.position.set(-48.6, Y, 7.4); wbar.lookAt(-47.2, Y, 6.2); wbar.rotateY(Math.PI / 2); scene.add(wbar); }
     window.WBAR = wbar; window.WBW = wb;
     { const bk = piece('bucket-02', .45); if (bk) asphaltLoad(bk); put(bk, -45.4, 6.0, 1); }
-    const insp = await fig('Brian_Phone'); insp.position.set(-38.5, Y, 8.7); scene.add(insp); face(insp, -46, 6.5); hatOn(insp, '#f4f4f0'); window.CREW = { dig, crouch, wb, insp };
+    const insp = await fig('Brian_Phone'); insp.position.set(-38.5, Y, 8.7); scene.add(insp); face(insp, -46, 6.5); hatOn(insp, '#f1c21b'); window.CREW = { dig, crouch, wb, insp };
+    // soft contact shadows (AO in the post can't reach under thin props)
+    const blobT = canvasTex(128, 128, (x, w, h) => { const g2 = x.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2); g2.addColorStop(0, 'rgba(0,0,0,.55)'); g2.addColorStop(.6, 'rgba(0,0,0,.18)'); g2.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g2; x.fillRect(0, 0, w, h); });
+    const BLOB = new THREE.MeshBasicMaterial({ map: blobT, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6 });
+    const blob2 = (x, z, sx, sz, ry = 0) => { const b = new THREE.Mesh(new THREE.PlaneGeometry(sx, sz), BLOB); b.rotation.set(-Math.PI / 2, 0, ry); b.position.set(x, Y + .011, z); b.renderOrder = 2; scene.add(b); };
+    for (const w of [dig, crouch, wb, insp]) blob2(w.position.x, w.position.z, 1.0, .8, -w.rotation.y);
+    { const p = V3(); if (window.WBAR) { window.WBAR.getWorldPosition(p); blob2(p.x, p.z, 1.6, .8, -wb.rotation.y + Math.PI / 2); } }
+    blob2(-45.4, 6.0, .55, .55); blob2(-76, 6.4, 7.4, 2.8); blob2(-61.5, 6.2, 4.2, 2.2);
+    for (let i = 0; i < 26; i++) blob2(-112 + i * 3.2, i < 5 ? 8.0 - i * .8 : 4.7, .55, .55);
   } catch (e) { window.ERR = (window.ERR || []).concat('crew ' + e.message); }
 }
 
