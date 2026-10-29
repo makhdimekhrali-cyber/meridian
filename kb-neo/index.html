@@ -320,7 +320,7 @@ const POL = [];
 { const pg = await glb('police');
   if (pg) for (const [x, z, ry] of [[-250, 6.2, -Math.PI / 2], [250, -6.2, Math.PI / 2]]) { const c = pg.clone(true); const g2 = fitGround(c, 5.0); g2.position.set(x, Y, z); g2.rotation.y = ry; scene.add(g2); const b = new THREE.Box3().setFromObject(g2);
     const red = new THREE.MeshStandardMaterial({ color: '#300', emissive: '#ff2a1a', emissiveIntensity: 0 }), blue = new THREE.MeshStandardMaterial({ color: '#003', emissive: '#2a5bff', emissiveIntensity: 0 });
-    const topY = b.max.y + .05; const r1 = add(new THREE.BoxGeometry(.5, .14, .26), red, x, topY, z - .3), b1 = add(new THREE.BoxGeometry(.5, .14, .26), blue, x, topY, z + .3); r1.rotation.y = b1.rotation.y = ry;
+    const topY = b.max.y + .05;
     const pr = new THREE.PointLight('#ff2a1a', 0, 18, 2), pb = new THREE.PointLight('#2a5bff', 0, 18, 2); pr.position.set(x, topY + .3, z - .3); pb.position.set(x, topY + .3, z + .3); scene.add(pr, pb);
     const gm = c => new THREE.PointsMaterial({ color: c, size: 16 * H / 1080, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
     const gr = gm('#ff3020'), gb = gm('#3a6bff'); for (const [mm, dz] of [[gr, -.3], [gb, .3]]) { const pg2 = new THREE.BufferGeometry().setFromPoints([V3(x, topY + .2, z + dz)]); const pp = new THREE.Points(pg2, mm); pp.renderOrder = 8; scene.add(pp); }
@@ -329,19 +329,24 @@ const POL = [];
 const SHIPL = []; const WHP = { c: V3(0, 0, 18), top: 29, front: 8, w: 42 };
 { const wt = canvasTex(512, 32, (c, w, h) => { c.fillStyle = '#000'; c.fillRect(0, 0, w, h); for (let i = 0; i < 32; i++) { c.fillStyle = (i * 7) % 5 ? '#fff' : '#8a8a8a'; c.fillRect(i * 16 + 2, 4, 12, 24); } });
   const wm = new THREE.MeshBasicMaterial({ map: wt, color: new THREE.Color('#ffd9a0').multiplyScalar(1.6), toneMapped: false, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }); SHIPL.push(wm);
-  for (const [w, hh, y, z] of [[38, 1.3, 24.6, 8.05], [38, 1.3, 24.6, 28.05], [14, .8, 14.6, 10.35], [14, .8, 19.6, 10.35], [14, .8, 21.9, 10.35], [14, .8, 19.6, 23.55]]) { const m2 = new THREE.Mesh(new THREE.PlaneGeometry(w, hh), wm); m2.position.set(0, y, z); ship.add(m2); } }
+  for (const [w, hh, y, z] of [[38, 2.0, 24.7, 8.05], [38, 2.0, 24.7, 28.05], [14, .8, 14.6, 10.35], [14, .8, 19.6, 10.35], [14, .8, 21.9, 10.35], [14, .8, 19.6, 23.55]]) { const m2 = new THREE.Mesh(new THREE.PlaneGeometry(w, hh), wm); m2.position.set(0, y, z); ship.add(m2); } }
 const FLOODS = []; for (const zz of [-100, -40, 60, 115]) { const sp = new THREE.SpotLight('#fff1d8', 0, 90, .9, .8, 1.6); sp.position.set(0, 40, zz); sp.target.position.set(0, 12, zz); ship.add(sp, sp.target); FLOODS.push(sp); }
-const shipLightsOn = on => { SHIPL.forEach(m => m.color.set('#ffd9a0').multiplyScalar(on ? 3.2 : 0)); FLOODS.forEach(f => f.intensity = on ? 1800 : 0); };
+{ // the model's accommodation block has floors but no side walls — close it (seen in the scale shot, Mahdi 29.10)
+  const hm = new THREE.MeshStandardMaterial({ color: '#e7e3da', roughness: .75 }); const hb = new THREE.Mesh(new RoundedBoxGeometry(21.2, 15.2, 11.8, 2, .3), hm); hb.position.set(0, 7.5 + 7.6, 17.1); hb.castShadow = hb.receiveShadow = true; ship.add(hb);
+  const hb2 = new THREE.Mesh(new RoundedBoxGeometry(40.8, 7.0, 17.5, 2, .3), hm); hb2.position.set(0, 7.5 + 3.5, 18.6); hb2.castShadow = hb2.receiveShadow = true; ship.add(hb2); }
+const WHL = new THREE.PointLight('#ffcf8a', 0, 70, 1.6); WHL.position.set(0, 26, 2); ship.add(WHL);
+const shipLightsOn = on => { WHL.intensity = on ? 900 : 0; SHIPL.forEach(m => m.color.set('#ffd9a0').multiplyScalar(on ? 5 : 0)); FLOODS.forEach(f => f.intensity = on ? 1800 : 0); };
 // trail for the timeline (top view)
 const trail = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .85, depthWrite: false })); trail.rotation.x = -Math.PI / 2; trail.renderOrder = 6; trail.visible = false; scene.add(trail);
-const PATH = u => { const bz = 330 - u * 290, bx = -150 - 18 * u, ang = -.04 - .12 * u; return [bx, bz, ang]; };
+const PATH = u => { const bz = 85 - u * 82, bx = -150 - 18 * u, ang = -.04 - .12 * u; return [bx, bz, ang]; };
 
 // ── macro scene: control cabinet terminal block (millimetres), ported from hook v1 ──
 const macro = new THREE.Scene(); macro.background = scene.background; macro.environment = scene.environment; macro.environmentIntensity = .4;
 const mcam = new THREE.PerspectiveCamera(30, W / H, 2, 4000);
 const MP = makePost(r, macro, mcam, W, H, { ssaa: SS, ao: true, aoAmt: .7, aoRadius: 6, aoScale: 1.4 }); MP.bloom.strength = .2; MP.bloom.threshold = 1.2; MP.vig.uniforms.amt.value = .4;
 const mkey = new THREE.SpotLight('#fff4e6', 2.2, 0, .6, .9, 0); mkey.castShadow = true; mkey.shadow.mapSize.set(2048, 2048); mkey.shadow.bias = -.0002; mkey.shadow.normalBias = .03; macro.add(mkey, mkey.target);
-const mfill = new THREE.DirectionalLight('#a9c0e0', .4); mfill.position.set(-300, 200, 200); macro.add(mfill); macro.add(new THREE.HemisphereLight('#c9d6e0', '#30302c', .5));
+const mfill = new THREE.DirectionalLight('#a9c0e0', .4); mfill.position.set(-300, 200, 200); macro.add(mfill); const mhemi = new THREE.HemisphereLight('#c9d6e0', '#30302c', .5); macro.add(mhemi);
+const mtorch = new THREE.SpotLight('#fff3df', 0, 0, .16, .55, 0); mtorch.castShadow = true; mtorch.shadow.mapSize.set(2048, 2048); mtorch.shadow.bias = -.0002; mtorch.shadow.normalBias = .03; macro.add(mtorch, mtorch.target);
 const mesh = (g2, m, p, x = 0, y = 0, z = 0) => add(g2, m, x, y, z, p), BOX = (w, h, d) => new RoundedBoxGeometry(w, h, d, 2, Math.min(w, h, d) * .08), STD = (c, ro = .5, me = 0, ex = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: ro, metalness: me, ...ex });
 const NB = 16, PITCH = 6.2, BAD = 9, FACE = 23, WY = 8;
 mesh(new THREE.PlaneGeometry(1400, 900), STD('#b7bab9', .45, .6), macro, 0, 0, -26);
@@ -402,89 +407,87 @@ const SMOKE = (() => { const N = 900, pos = [], a = []; for (let i = 0; i < N; i
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('ar', new THREE.Float32BufferAttribute(a, 3));
   const m = new THREE.ShaderMaterial({ uniforms: { uT: SMT, uPx: { value: H / 1080 } }, transparent: true, depthWrite: false,
     vertexShader: `attribute vec3 ar; uniform float uT, uPx; varying float vA; varying float vS; void main(){ float a=uT-ar.x*.9; vec3 p=position; if(a<0.){vA=0.;} else { float l=mod(a,8.); p+=vec3(l*2.2*ar.y, l*4.5*ar.y+l*l*.15, l*1.2*(ar.z-.3)); p.xz+=vec2(sin(l*1.3+ar.z*6.),cos(l*1.1+ar.x))*l*.6; vA=smoothstep(0.,.6,l)*(1.-l/8.)*.75; vS=ar.z; }
- vec4 mv=modelViewMatrix*vec4(p,1.); gl_Position=projectionMatrix*mv; gl_PointSize=(4.+mod(max(a,0.),8.)*5.)*uPx*900./-mv.z; }`,
-    fragmentShader: `varying float vA; varying float vS; void main(){ vec2 c=gl_PointCoord-.5; float r=length(c); if(r>.5||vA<=0.) discard; gl_FragColor=vec4(vec3(.07+.06*vS), vA*smoothstep(.5,.0,r)); }` });
+ vec4 mv=modelViewMatrix*vec4(p,1.); gl_Position=projectionMatrix*mv; gl_PointSize=(9.+mod(max(a,0.),8.)*9.)*uPx*900./-mv.z; }`,
+    fragmentShader: `varying float vA; varying float vS; void main(){ vec2 c=gl_PointCoord-.5; float r=length(c); if(r>.5||vA<=0.) discard; gl_FragColor=vec4(vec3(.10+.10*vS), vA*.9*smoothstep(.5,.0,r)); }` });
   const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.position.set(0, 39, 17.5); ship.add(pts); return pts; })();
 // Shot table = calque of the donor hook (neo «Deepwater Horizon» 0:00–1:32, cuts measured 29.10: 0 · 10.3 · 12.7 · 19.7 · 21.4 · 24.4 · 28.0 · 32.0 · 33.5 · 34.6 · 37.6 · 39.8 · 42.5 · 44.4 · 64.6 · 73.6 · 89.1).
 // Cuts 1–2 frames before the first word after a pause ≥0.18 s (rule M-39; Jeff VO silencedetect). dis = dissolve-in length (donor opens with one long plan of dissolves).
+// v10 (29.10): storyboard by feeling (Murch: emotion → story → rhythm), Kuleshov pairs, long plans with movement inside.
+// Shot length follows the feeling, not the donor average; cuts 1–2 frames before the first word after a pause (M-39).
+// v11 (29.10): archive footage like the donor (DVIDS public domain, comped in ffmpeg over the F-slots), 3D camera barely moves (donor measured 2–8 %/s),
+// shot size changes by a step at every cut (K5), cuts 1–2 frames before the first word after a pause (M-39).
 const SH = [
-  { a: 0, b: 5.0, k: 'bridgeWide' },             // 0–3.3 Google Earth dive over Baltimore (comped in ffmpeg, dissolves in at 2.5–3.3) · «At 1:27 … the police at both ends» ← donor 0–10.3 long open with dissolves
-  { a: 5.0, b: 7.59, k: 'police', dis: .8 },     // «… get an order on the radio.»
-  { a: 7.59, b: 10.22, k: 'collapse' },           // «They have 77 seconds.» flash-forward: the span falls ← donor 10.3–12.7 the disaster itself
-  { a: 10.22, b: 14.61, k: 'crew' },              // «Out on the bridge, eight men …»       ← 12.7–19.7 aerial (7 s) → crane down
-  { a: 14.61, b: 16.0, k: 'daliTop' },          // «The ship the radio is talking about»  ← 19.7–21.4 satellite (1.7 s)
-  { a: 16.0, b: 17.62, k: 'daliIn', dis: .6 },            // «… is the Dali.»
-  { a: 17.62, b: 20.05, k: 'scale' },             // «It is 984 feet long,»                 ← 21.4–24.4 (3.0 s)
-  { a: 20.05, b: 21.99, k: 'scale2' },            // «nearly three football fields,»        ← 24.4–28.0
-  { a: 21.99, b: 25.57, k: 'stacks' },            // «and it carries 4,680 containers.»     ← 28.0–32.0 (4.0 s)
-  { a: 25.57, b: 27.29, k: 'wheelhouse' },       // «Less than three minutes earlier,»     ← 32.0–33.5 quick pair
-  { a: 27.29, b: 29.05, k: 'lightsOut' },       // «every light on that ship went out.»   ← 33.5–34.6
-  { a: 29.05, b: 30.71, k: 'black' },           //  1.5 s black, no voice
-  { a: 30.71, b: 33.98, k: 'blockWide' },       // «Twenty months later, investigators found the reason:» ← 34.6–37.6 first 3D object
-  { a: 33.98, b: 35.45, k: 'wire' },             // «one signal wire,»                     ← 37.6–39.8
-  { a: 35.45, b: 36.8, k: 'gap' },               // «loose in its terminal,»               ← 39.8–42.5
-  { a: 36.8, b: 39.26, k: 'band' },             // «held back by the label …»             ← 42.5–44.4
-  { a: 39.26, b: 45.26, k: 'timeline' },         // «This is the story of that wire, second by second, …» ← 44.4–64.6 one long plan (promise)
+  { a: 0, b: 2.87, k: 'F1' },            // «At 1:27 in the morning,»  FOOTAGE: DVIDS 918042 1:08 — the Dali at dusk with the span on its bow (donor opens on archive)
+  { a: 2.87, b: 7.59, k: 'police' },     // «the police at both ends … radio.»  3D, wide: police car in the bridge portal, lines converge on it
+  { a: 7.59, b: 10.22, k: 'count' },     // «They have 77 seconds.»  close-up of the light bar + 77
+  { a: 10.22, b: 14.61, k: 'crew' },     // «Out on the bridge, eight men …»  top-down, they don't know
+  { a: 14.61, b: 17.62, k: 'approach' }, // «The ship … is the Dali.»  Kuleshov: crew + the bow coming at them
+  { a: 17.62, b: 25.57, k: 'scale' },    // «984 feet … 4,680 containers.»
+  { a: 25.57, b: 29.6, k: 'wheelhouse' },// «… every light … went out.»
+  { a: 29.6, b: 30.71, k: 'black' },
+  { a: 30.71, b: 31.97, k: 'F2' },       // «Twenty months later,»  FOOTAGE: DVIDS 918042 0:48 — the wreck draped over the bow (daylight, the aftermath)
+  { a: 31.97, b: 33.98, k: 'F3' },       // «investigators found the reason:»  FOOTAGE: DVIDS 918042 0:13 — drone top-down over the wreckage on deck
+  { a: 33.98, b: 39.26, k: 'push' },     // «one signal wire, loose …, held back by the label …»  3D detail
+  { a: 39.26, b: 45.26, k: 'trace' },    // «This is the story of that wire …»
   { a: 45.26, b: 49.5, k: 'title' }];            //  ONE WIRE                              ← donor title inside the long plan, ~0:56
-const T_OUT = 29.05; window.SH = SH;
+const T_OUT = 28.9; window.SH = SH;
 const hx = () => hud.getContext('2d');
 const txt = (str, x, y, px, w8 = 500, a = 1, align = 'left', col = '#fff', ls = 0) => { if (a <= 0) return; const x2 = hx(), k = H / 1080; x2.save(); x2.globalAlpha = a; x2.fillStyle = col; x2.font = `${w8} ${px * k}px Inter, "Helvetica Neue", Arial`; x2.letterSpacing = `${ls * k}px`; x2.textAlign = align; x2.textBaseline = 'alphabetic'; x2.shadowColor = 'rgba(0,0,0,.35)'; x2.shadowBlur = 8 * k; x2.fillText(str, x, y); x2.restore(); };
 const labelA = (wp, text, dx, a, c2 = cam) => { if (a <= 0) return; const x2 = hx(); x2.save(); x2.globalAlpha = a; const v = wp.clone().project(c2); if (v.z < 1) { const k = H / 1080, px = (v.x + 1) / 2 * W, py = (1 - v.y) / 2 * H, sx = px + dx * 40 * k; x2.strokeStyle = '#fff'; x2.lineWidth = 1.5 * k; x2.beginPath(); x2.moveTo(sx, py); x2.lineTo(sx + dx * 34 * k, py); x2.stroke(); x2.fillStyle = '#fff'; x2.font = `500 ${30 * k}px Inter, "Helvetica Neue", Arial`; x2.letterSpacing = `${1 * k}px`; x2.textBaseline = 'middle'; x2.textAlign = dx > 0 ? 'left' : 'right'; x2.fillText(text.toUpperCase(), sx + dx * 46 * k, py); } x2.restore(); };
 const bigA = (a, num, unit, sub, x0 = .06, y0 = .86, grad = true) => { if (a <= 0) return; const x2 = hx(); x2.save(); x2.globalAlpha = a; x2.translate(0, (1 - eo(a)) * 18); window.big(num, unit, sub, x0, y0, grad); x2.restore(); };
 const fade = document.createElement('canvas'); fade.width = W; fade.height = H; const fx = fade.getContext('2d');
-const MAC = { blockWide: 1, wire: 1, gap: 1, band: 1 };
+const MAC = { probe: 1, push: 1 };
+const APP = [-160, 85, -.08];    // placeShip takes the BOW position: bow 85 m short of the span, stern inside the water block
+// camera ease (CGBoost ch.9): hold at the start, quicker take-off, long settle, hold before the cut — never cut mid-move
+// donor measured 29.10 (neo Deepwater 34–75 s): 3D plans barely move — steady linear push/pull 2–8 % of frame per second, no holds, the cut lands in that slow drift;
+// a big move only as a flight that is the whole plan (city dive ~20–35 %/s). So: ln() = linear drift for normal plans, mv() only for the flight.
+const ln = u => u;
+const mv = (u, a = .07, b = .86) => { const x = Math.pow(seg(u, a, b), .7); return x * x * (3 - 2 * x); };
+const sway = (t, k = 1) => V3(Math.sin(t * .9) * .06 * k, Math.sin(t * 1.3 + 1) * .04 * k, Math.sin(t * .7 + 2) * .05 * k);
+const bez = (a, b, c, u) => V3(...a).multiplyScalar((1 - u) * (1 - u)).add(V3(...b).multiplyScalar(2 * u * (1 - u))).add(V3(...c).multiplyScalar(u * u));
 function drawMacro(k, u, t) { const bx = xOfB(BAD); let pos, tgt, fp, ap;
-  if (k === 'blockWide') { pos = lv([bx - 80, 64, 170], [bx - 40, 52, 144], eio(u)); tgt = lv([bx - 16, 4, 12], [bx - 4, 6, 16], eio(u)); fp = V3(bx - 6, 6, 18); ap = 30; }
-  else if (k === 'wire') { pos = lv([bx + 26, 80, 78], [bx + 20, 68, 66], eio(u)); tgt = V3(bx + 2, WY, FACE + 8); fp = V3(bx, WY, FACE + 4); ap = 70; }
-  else if (k === 'gap') { pos = lv([bx + 15, 21, 45], [bx + 12, 17, 39], eio(u)); tgt = V3(bx, WY, FACE + 3); fp = V3(bx, WY, FACE + 2); ap = 90; }
-  else { pos = lv([bx - 17, 27, 54], [bx - 13, 22, 47], eio(u)); tgt = V3(bx, WY, FACE + 7.5); fp = V3(bx, WY, FACE + 7); ap = 90; }
-  mcam.position.copy(pos); mcam.lookAt(tgt); mcam.fov = 30; mcam.updateProjectionMatrix(); mkey.position.set(bx + 90, 220, 180); mkey.target.position.set(bx - 10, 0, 10); mkey.target.updateMatrixWorld();
-  cuMat.emissiveIntensity = k === 'blockWide' ? 0 : seg(t, 33.9, 34.5) * (1.2 + .4 * Math.sin(t * 6));
+  mkey.intensity = .05; mfill.intensity = .015; mhemi.intensity = .03; macro.environmentIntensity = .07; mtorch.intensity = 7;
+  if (k === 'probe') { const c = ln(u); pos = lv([bx - 70, 60, 168], [bx - 66, 59, 164], c); tgt = lv([bx - 22, 4, 12], [bx - 10, 6, 14], c); fp = V3(bx - 8, 6, 18); ap = 26;
+    mtorch.position.set(bx - 40, 70, 150); const sx = -58 + 62 * eio(seg(t, 30.9, 33.7)); mtorch.target.position.set(bx + sx, WY + 2, FACE); }
+  else { const c = ln(u); pos = lv([bx + 15, 17, 50], [bx + 9, WY + 4.5, FACE + 19], c); tgt = lv([bx + 1, WY, FACE + 5], [bx, WY, FACE + 4], c); fp = lv([bx, WY, FACE + 4], [bx, WY, FACE + 3], c); ap = 60 + 40 * c;
+    mtorch.position.set(bx - 30, 60, 120); mtorch.target.position.set(bx, WY, FACE + 2); }
+  mtorch.target.updateMatrixWorld(); mcam.position.copy(pos); mcam.lookAt(tgt); mcam.fov = 30; mcam.updateProjectionMatrix(); mkey.position.set(bx + 90, 220, 180); mkey.target.position.set(bx - 10, 0, 10); mkey.target.updateMatrixWorld();
+  cuMat.emissiveIntensity = k === 'push' ? seg(t, 34.1, 34.8) * (1.0 + .3 * Math.sin(t * 6)) : 0;
   MP.dof.focus = pos.distanceTo(fp); MP.dof.aper = ap; MP.dof.maxCoc = 10; MP.composer.render(); }
 function drawWorld(k, u, t) {
   const ph = (t * 1.6) % 1, rOn = (ph < .07 || (ph > .12 && ph < .19)), bOn = (ph > .5 && ph < .57) || (ph > .62 && ph < .69);
-  POL.forEach(p => { p.red.emissiveIntensity = rOn ? 6 : .1; p.blue.emissiveIntensity = bOn ? 6 : .1; p.pr.intensity = rOn ? 60 : 0; p.pb.intensity = bOn ? 60 : 0; const far = k === 'bridgeWide' || k === 'collapse'; p.gr.opacity = far && rOn ? 1 : 0; p.gb.opacity = far && bOn ? 1 : 0; });
-  setCollapse(-1); SMT.value = -1; AOOFF = false;
-  SC.fields.visible = false; SC.fields.position.y = 0; trail.visible = false; placeShip(-168, 40, -.16); shipLightsOn(t < T_OUT); sun.intensity = H0.sunI; scene.environmentIntensity = H0.envI;
+  POL.forEach(p => { p.red.emissiveIntensity = rOn ? 6 : .1; p.blue.emissiveIntensity = bOn ? 6 : .1; p.pr.intensity = rOn ? 60 : 0; p.pb.intensity = bOn ? 60 : 0; const far = k === 'open' && u < .6; p.gr.opacity = far && rOn ? 1 : 0; p.gb.opacity = far && bOn ? 1 : 0; });
+  setCollapse(-1); SMT.value = -1; AOOFF = false; EXPO = 1;
+  SC.fields.visible = false; SC.fields.position.y = 0; trail.visible = false; placeShip(...APP); shipLightsOn(t < T_OUT); sun.intensity = H0.sunI; scene.environmentIntensity = H0.envI;
   let pos, tgt, fov = 34, ap = 2.5, focus = null;
-  if (k === 'bridgeWide') { pos = lv([-60, 420, 1040], [-50, 300, 820], eio(u)); tgt = V3(-30, 10, 0); fov = 30; ap = 0; }
-  else if (k === 'collapse') { setCollapse(1.15 + (t - 7.59)); AOOFF = true; pos = lv([-470, 70, 360], [-450, 64, 335], eio(u)); tgt = V3(-90, 26, 10); fov = 34; ap = 1.5; }
-  else if (k === 'police') { pos = lv([-239.5, 57.8, 11.4], [-242, 57.5, 9.4], eio(u)); tgt = V3(-251, 57, 5.8); fov = 32; ap = 4; focus = [-250, 57, 6.2]; }
-  else if (k === 'deckRun') { const x = -12 - 14 * eio(u); pos = V3(x, 59.6, 2.6); tgt = V3(x - 60, 57.2, 6.4); fov = 36; ap = 2; }
-  else if (k === 'crew') { const c = eio(u); pos = lv([-45, 96, 3], [-37.5, 60.6, 0.9], c); tgt = lv([-48.5, 56, 6.4], [-53.5, 56.4, 7.1], c); fov = 40; ap = 3 * c; focus = [-47, 56.6, 6.6]; }
-  else if (k === 'daliTop') { pos = lv([-160, 540, 70], [-163, 490, 62], eio(u)); tgt = V3(-170, 0, 40); fov = 30; ap = 0; }
-  else if (k === 'daliIn') { pos = lv([-95, 6, -150], [-101, 7.2, -128], eio(u)); tgt = V3(-185, 24, 140); fov = 32; ap = 2; }
-  else if (k === 'scale' || k === 'scale2') { SC.fields.visible = true; const fa = k === 'scale' ? seg(t, 17.7, 18.7) : 1; SC.fields.position.y = -(1 - eo(fa)) * 3;
-    if (k === 'scale') { pos = lv([70, 250, 250], [88, 260, 236], eio(u)); tgt = V3(-185, 0, 190); }
-    else { pos = lv([-40, 70, 380], [-58, 62, 352], eio(u)); tgt = V3(-190, 4, 180); fov = 34; ap = 2; } }
-  else if (k === 'stacks') { pos = lv([-400, 250, 560], [-374, 228, 524], eio(u)); tgt = V3(-185, 8, 175); fov = 32; ap = 2; focus = [-185, 20, 190]; }
-  else if (k === 'wheelhouse' || k === 'lightsOut') { const nk = .32; sun.intensity = H0.sunI * nk; scene.environmentIntensity = H0.envI * nk;
-    if (k === 'wheelhouse') { pos = ship.localToWorld(lv([70, 34, -130], [60, 33, -112], eio(u))); tgt = ship.localToWorld(V3(0, 22, 12)); fov = 34; ap = 1.5; }
-    else { pos = ship.localToWorld(lv([24, 35, -44], [18, 32, -34], eio(u))); tgt = ship.localToWorld(V3(0, 24, 9)); fov = 34; ap = 3; focus = tgt.toArray(); } }
-  else if (k === 'timeline') { const pu = eio(seg(t, 39.6, 45.2)), [bx, bz, ang] = PATH(pu); placeShip(bx, bz, ang); SMT.value = 2 + (t - 39.26);
-    pos = lv([-165, 980, 330], [-170, 880, 296], eio(u)); tgt = V3(-170, 0, 185); fov = 34; ap = 0; shipLightsOn(false); }
+  if (k === 'open') { placeShip(APP[0], 85, APP[2]); const c = u < .25 ? u * u / .5 : u - .125; const cc = c / .875; pos = bez([-30, 430, 1060], [-420, 150, 40], [-263, 58.6, 3.4], cc); tgt = lv([-40, 10, 70], [-250.5, 57.4, 6.0], Math.pow(cc, 1.2)); fov = 32; ap = 3.5 * Math.pow(cc, 3); focus = [-250, 57.3, 6.2]; }
+  else if (k === 'police') { pos = lv([-263, 58.6, 3.4], [-262.3, 58.56, 3.48], ln(u)); tgt = V3(-250.5, 57.4, 6.0); fov = 32; ap = 3; focus = [-250.5, 57.4, 6.0]; }
+  else if (k === 'count') { pos = lv([-253.4, 58.35, 4.2], [-253.0, 58.28, 4.45], ln(u)); tgt = V3(-250.3, 57.75, 6.2); fov = 30; ap = 7; focus = [-250.3, 57.75, 6.2]; }
+  else if (k === 'crew') { pos = lv([-44, 80, 3.8], [-43.2, 76, 3.6], ln(u)); tgt = V3(-48.5, 56, 6.4); fov = 40; ap = 1.5; focus = [-48, 56.6, 6.4]; }
+  else if (k === 'approach') { placeShip(APP[0], 92 - 7 * u, APP[2]); SMT.value = 3 + (t - 14.61); pos = V3(-176, 8.3, -31); tgt = V3(-157, 21, 95); fov = 24; ap = 2; focus = [-160, 20, 70]; }
+  else if (k === 'scale') { placeShip(APP[0], 85, APP[2]); SC.fields.visible = true; const fa = seg(t, 17.9, 18.9); SC.fields.position.y = -(1 - eo(fa)) * 3;
+    pos = ship.localToWorld(lv([118, 8, -150], [215, 95, -128], ln(u))); tgt = ship.localToWorld(lv([20, 10, -40], [25, 0, -10], ln(u))); fov = 30; ap = 1.5; }
+  else if (k === 'wheelhouse') { const nk = t < T_OUT ? .14 : .04; sun.intensity = H0.sunI * nk; scene.environmentIntensity = H0.envI * nk; EXPO = t < T_OUT ? .5 : .14;
+    placeShip(APP[0], 85, APP[2]); pos = ship.localToWorld(lv([52, 36, -104], [44, 35, -90], ln(u))); tgt = ship.localToWorld(V3(0, 24.4, 9)); fov = 34; ap = 2.5; focus = tgt.toArray(); }
+  else if (k === 'trace') { const pu = mv(seg(t, 39.5, 45.1), 0, 1), [bx, bz, ang] = PATH(pu); placeShip(bx, bz, ang); SMT.value = 2 + (t - 39.26); shipLightsOn(false);
+    pos = V3(-160, 640, 150); tgt = V3(-162, 0, 120); fov = 34; ap = 0; }
   cam.position.copy(pos); cam.fov = fov; cam.lookAt(tgt); cam.updateProjectionMatrix(); water.material.uniforms.time.value = 4 + t * .35;
-  if (post.dof.ao0 === undefined) post.dof.ao0 = post.dof.aoAmt; post.dof.aoAmt = AOOFF ? 0 : post.dof.ao0; post.dof.focus = cam.position.distanceTo(focus ? V3(...focus) : tgt); post.dof.aper = ap; post.dof.maxCoc = ap ? 8 : 0; post.composer.render(); }
-let AOOFF = false;
+  if (post.dof.ao0 === undefined) post.dof.ao0 = post.dof.aoAmt; post.dof.aoAmt = AOOFF ? 0 : post.dof.ao0; post.dof.focus = cam.position.distanceTo(focus ? V3(...focus) : tgt); post.dof.aper = ap; post.dof.maxCoc = ap ? 8 : 0; if (r.e0 === undefined) r.e0 = r.toneMappingExposure; r.toneMappingExposure = r.e0 * EXPO; post.composer.render(); r.toneMappingExposure = r.e0; }
+let AOOFF = false, EXPO = 1;
 const draw = (k, u, t) => MAC[k] ? drawMacro(k, u, t) : drawWorld(k, u, t);
 // HUD — a frame gets a label OR a number (never text that only repeats the voice)
-function hudFor(k, t) {
-  if (k === 'bridgeWide') { labelA(V3(-250, 60, 6.2), 'Police', -1, env(t, 3.4, 5.0, .3, .2)); labelA(V3(250, 60, -6.2), 'Police', 1, env(t, 3.4, 5.0, .3, .2)); }
-  if (k === 'police') labelA(V3(-250, 58.3, 6.2), 'Police · south end', -1, env(t, 4.9, 7.45, .3, .2));
-  if (k === 'collapse') bigA(env(t, 7.75, 10.22, .3, .15), '77', 'seconds', 'from the order to close the bridge to impact');
-  if (k === 'crew') labelA(V3(-50, 58.6, 7.2), '8 men · road crew', 1, env(t, 11.6, 14.45, .35, .2));
-  if (k === 'daliIn') labelA(LB.dali(), 'Dali', 1, env(t, 16.2, 17.6, .25, .1));
-  if (k === 'scale') bigA(env(t, 18.0, 20.0, .3, .1), '984', 'ft', 'nearly three football fields');
-  if (k === 'stacks') { const n = Math.round(4680 * eo(seg(t, 22.2, 24.2))); bigA(env(t, 22.1, 25.4, .3, .15), n.toLocaleString('en-US'), 'containers', 'on board the Dali', .60, .30, false); }
-  if (k === 'blockWide') { labelA(V3(xOfB(3), 21, 2), 'Terminal block', -1, env(t, 31.6, 33.85, .4, .15), mcam); txt('NTSB FINAL REPORT · DECEMBER 2025', 56 * H / 1080, 86 * H / 1080, 24, 500, env(t, 30.9, 33.85, .4, .15), 'left', '#e6e9ec', 2); }
-  if (k === 'wire') labelA(V3(xOfB(BAD), WY + 1.4, FACE + 24), 'Signal wire', 1, env(t, 34.0, 35.4, .25, .1), mcam);
-  if (k === 'gap') labelA(V3(xOfB(BAD), WY + .5, FACE + 1.5), 'Loose in its terminal', -1, env(t, 35.5, 36.8, .25, .1), mcam);
-  if (k === 'band') labelA(V3(xOfB(BAD) + 1.5, WY + 1.9, FACE + 9), 'Label band', 1, env(t, 37.0, 39.25, .25, .15), mcam);
-  if (k === 'timeline') { labelA(V3(-153, 1, 330 - .2 * 290), 'Second blackout · 0.2 mi', 1, env(t, 39.8, 42.2, .3, .2)); labelA(V3(-160, 1, 150), 'Bridge closed · 1:27:53', 1, env(t, 42.3, 44.3, .3, .2)); labelA(V3(P17, 20, 14), 'Pier 17', -1, env(t, 44.4, 45.3, .25, .05)); }
+function hudFor(k, t) {   // numbers from FACTS.md; labels only where they point at a thing the voice does not name
+  if (k === 'count') bigA(env(t, 7.75, 10.22, .3, .15), '77', 'seconds', 'from the order to close the bridge to impact');
+  if (k === 'scale') { bigA(env(t, 18.1, 21.9, .3, .2), '984', 'ft', 'nearly three football fields'); const n = Math.round(4680 * eo(seg(t, 22.2, 24.2))); bigA(env(t, 22.1, 25.57, .3, .15), n.toLocaleString('en-US'), 'containers', 'on board the Dali'); }
+  if (k === 'probe') txt('NTSB FINAL REPORT · DECEMBER 2025', 56 * H / 1080, 86 * H / 1080, 24, 500, env(t, 31.0, 33.98, .4, .15), 'left', '#e6e9ec', 2);
+  if (k === 'push') { labelA(V3(xOfB(BAD), WY + 1.4, FACE + 24), 'Signal wire', 1, env(t, 34.1, 35.5, .25, .1), mcam); labelA(V3(xOfB(BAD), WY + .5, FACE + 1.5), 'Loose in its terminal', -1, env(t, 35.6, 36.9, .25, .1), mcam); labelA(V3(xOfB(BAD) + 1.5, WY + 1.9, FACE + 9), 'Label band', 1, env(t, 37.0, 39.2, .25, .15), mcam); }
+  if (k === 'trace') { const x2 = hx(), kk = H / 1080, pu = eio(seg(t, 39.5, 45.1)); x2.save(); x2.strokeStyle = 'rgba(255,255,255,.9)'; x2.lineWidth = 3 * kk; x2.setLineDash([10 * kk, 7 * kk]); x2.beginPath();
+      for (let q = 0; q <= 40; q++) { const uu = pu * q / 40, [px, pz] = PATH(uu), v = V3(px, 1, pz).project(cam), sx = (v.x + 1) / 2 * W, sy = (1 - v.y) / 2 * H; q ? x2.lineTo(sx, sy) : x2.moveTo(sx, sy); } x2.stroke(); x2.restore();
+    labelA(V3(-152, 1, 95 - .25 * 92 + 40), 'Second blackout · 0.2 mi', 1, env(t, 39.8, 42.2, .3, .2)); labelA(V3(-160, 1, 40), 'Bridge closed · 1:27:53', 1, env(t, 42.3, 44.3, .3, .2)); labelA(V3(P17, 20, 14), 'Pier 17', -1, env(t, 44.4, 45.26, .25, .05)); }
 }
 window.render = t => {
   let i = SH.findIndex(s => t < s.b); if (i < 0) i = SH.length - 1; const sh = SH[i], u = seg(t, sh.a, sh.b), k = sh.k; const x2 = hx(); x2.clearRect(0, 0, W, H);
-  if (k === 'black' || k === 'title') { r.setRenderTarget(null); r.setClearColor('#000', 1); r.clear(); x2.fillStyle = '#000'; x2.fillRect(0, 0, W, H);
+  if (k === 'black' || k === 'title' || k[0] === 'F') { r.setRenderTarget(null); r.setClearColor('#000', 1); r.clear(); x2.fillStyle = '#000'; x2.fillRect(0, 0, W, H);
     if (k === 'title') { const a = env(t, 45.5, 49.6, .9, .01); txt('ONE WIRE', W / 2, H / 2 + 40 * H / 1080, 170, 700, a, 'center', '#fff', 10 + 12 * eo(seg(t, 45.5, 49.5))); txt('HOW THE KEY BRIDGE CAME DOWN', W / 2, H / 2 + 110 * H / 1080, 28, 400, env(t, 46.4, 49.6, .8, .01), 'center', '#b8bfc6', 3); }
     return; }
   const dis = sh.dis && t < sh.a + sh.dis ? 1 - eio(seg(t, sh.a, sh.a + sh.dis)) : 0;
@@ -502,5 +505,16 @@ window.CAPTURE = async (from, to, fps = 30, name = 'kb-hook-neo.mp4') => { const
   for (let f = F0; f < F1; f++) { window.render(f / fps); cx.drawImage(glc, 0, 0, W, H); cx.drawImage(hud, 0, 0); const vf = new VideoFrame(comp, { timestamp: Math.round((f - F0) * 1e6 / fps), duration: Math.round(1e6 / fps) }); enc.encode(vf, { keyFrame: (f - F0) % 60 === 0 }); vf.close();
     if (enc.encodeQueueSize > 6) await new Promise(rs => enc.addEventListener('dequeue', rs, { once: true })); window.PROG.f = f + 1; if (f % 4 === 0) await new Promise(rs => setTimeout(rs, 0)); }
   await enc.flush(); muxer.finalize(); const blob = new Blob([target.buffer], { type: 'video/mp4' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); window.PROG.done = true; window.PROG.bytes = blob.size; window.PROG.sec = (performance.now() - window.PROG.t0) / 1000; };
+window.PLAYER = async () => { if (document.getElementById('pl')) return; const box = document.createElement('div'); box.id = 'pl';
+  Object.assign(box.style, { position: 'fixed', left: 0, right: 0, bottom: 0, padding: '10px 16px', background: 'rgba(0,0,0,.72)', color: '#fff', font: '14px Arial', zIndex: 99, display: 'flex', gap: '12px', alignItems: 'center' });
+  box.innerHTML = '<button id=plb style="font:16px Arial;padding:6px 14px">▶</button><input id=pls type=range min=0 max=49.5 step=0.01 value=0 style="flex:1"><span id=plt style="min-width:150px"></span>';
+  document.body.appendChild(box); const au = new Audio(); try { const rr = await CACHE.match('/asset/voice-hook.mp3'); if (rr) au.src = URL.createObjectURL(await rr.blob()); } catch (e) {}
+  const b = box.querySelector('#plb'), sl = box.querySelector('#pls'), tl = box.querySelector('#plt'); let playing = false, t0 = 0, w0 = 0;
+  const cur = () => playing ? (au.src ? au.currentTime : w0 + (performance.now() - t0) / 1000) : +sl.value;
+  const show = t => { window.render(t); const sh = SH.find(q => t < q.b) || SH[SH.length - 1]; tl.textContent = t.toFixed(1) + ' с · ' + sh.k; };
+  b.onclick = () => { playing = !playing; b.textContent = playing ? '❚❚' : '▶'; if (playing) { w0 = +sl.value; t0 = performance.now(); if (au.src) { au.currentTime = w0; au.play(); } } else au.pause(); };
+  sl.oninput = () => { if (playing) b.onclick(); show(+sl.value); };
+  const loop = () => { if (playing) { const t = cur(); if (t >= 49.5) b.onclick(); else { sl.value = t; show(t); } } requestAnimationFrame(loop); }; loop(); show(0); };
+setTimeout(() => window.PLAYER(), 300);
 window.READY = true;
 </script></body></html>
