@@ -257,7 +257,7 @@ const Y = DECKY + .2;
 // ── Dali (Sketchfab 'Container Ship' by RM02, CC-BY): hull repainted, containers recoloured, foam, scale overlay ─────
 const ship = new THREE.Group(); scene.add(ship);
 const SL = 300, SB2 = 24;
-window.placeShip = (bx, bz, ang) => { ship.rotation.y = ang; const off = V3(0, 0, -SL / 2 - 4).applyAxisAngle(V3(0, 1, 0), ang); ship.position.set(bx - off.x, 0, bz - off.z); ship.updateMatrixWorld(true); };
+window.placeShip = (bx, bz, ang) => { ship.rotation.y = ang; const off = V3(0, 0, -SL / 2 - 4).applyAxisAngle(V3(0, 1, 0), ang); ship.position.set(bx - off.x, 0, bz - off.z); ship.updateMatrixWorld(true); if (window.SHIPINV) window.SHIPINV.value.copy(ship.matrixWorld).invert(); };  // container colours are hashed in ship-local space — keep the inverse current while the ship moves
 placeShip(-168, 40, -.16);
 const SC = window.SC = { scene, ship, water, THREE, r };
 {
@@ -265,7 +265,7 @@ const SC = window.SC = { scene, ship, water, THREE, r };
   if (g) { const wrap = new THREE.Group(); wrap.add(g); g.updateMatrixWorld(true);
     let b = new THREE.Box3().setFromObject(g), s = b.getSize(V3()); if (s.x > s.z) { g.rotation.y += Math.PI / 2; g.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(g); s = b.getSize(V3()); }
     g.scale.multiplyScalar(SL / s.z); g.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(g); const c = b.getCenter(V3()); g.position.sub(V3(c.x, b.min.y + 17, c.z)); ship.add(wrap); SC.wrap = wrap; ship.updateMatrixWorld(true);
-    const uInv = { value: ship.matrixWorld.clone().invert() };
+    const uInv = { value: ship.matrixWorld.clone().invert() }; window.SHIPINV = uInv;
     g.traverse(m => { if (!m.isMesh) return; m.castShadow = m.receiveShadow = true; const n = m.material.name;
       if (n === 'Hull') { const hm = new THREE.MeshStandardMaterial({ color: '#1c2837', roughness: .45, metalness: .2 }); hm.onBeforeCompile = sh => { worldVaryings(sh); sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = vWP.y < -.3 ? vec3(.45,.10,.08) : (vWP.y < .5 ? vec3(.8) : diffuseColor.rgb);'); }; hm.customProgramCacheKey = () => 'hull5'; m.material = hm; }
       if (n === 'Containers') { const cm = m.material.clone(); cm.onBeforeCompile = sh => { sh.uniforms.uInv = uInv; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform mat4 uInv; varying vec3 vLP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvLP=(uInv*modelMatrix*vec4(transformed,1.)).xyz;');
