@@ -239,11 +239,13 @@ const Y = DECKY + .2;
     window.WBAR = wbar; window.WBW = wb;
     { const bk = piece('bucket-02', .45); if (bk) asphaltLoad(bk); put(bk, -45.4, 6.0, 1); }
     const insp = await fig('Brian_Phone'); insp.position.set(-38.5, Y, 8.7); scene.add(insp); face(insp, -46, 6.5); hatOn(insp, '#f1c21b'); window.CREW = { dig, crouch, wb, insp };
+    const far = []; for (const [n, x, z, tx, tz] of [['James_Inspect', -60.0, 7.6, -61.5, 6.2], ['Leonard_Idle', -63.8, 7.9, -61.5, 6.2], ['Remy_Crouch', -64.2, 5.6, -63, 6.1], ['Brian_Phone', -72.5, 8.6, -76, 6.4]]) { const w = await fig(n); w.position.set(x, Y, z); scene.add(w); face(w, tx, tz); hatOn(w, '#f1c21b'); far.push(w); }
+    window.CREW8 = [dig, crouch, wb, insp, ...far];
     // soft contact shadows (AO in the post can't reach under thin props)
     const blobT = canvasTex(128, 128, (x, w, h) => { const g2 = x.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2); g2.addColorStop(0, 'rgba(0,0,0,.55)'); g2.addColorStop(.6, 'rgba(0,0,0,.18)'); g2.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g2; x.fillRect(0, 0, w, h); });
     const BLOB = new THREE.MeshBasicMaterial({ map: blobT, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6 });
     const blob2 = (x, z, sx, sz, ry = 0) => { const b = new THREE.Mesh(new THREE.PlaneGeometry(sx, sz), BLOB); b.rotation.set(-Math.PI / 2, 0, ry); b.position.set(x, Y + .011, z); b.renderOrder = 2; scene.add(b); };
-    for (const w of [dig, crouch, wb, insp]) blob2(w.position.x, w.position.z, 1.0, .8, -w.rotation.y);
+    for (const w of window.CREW8) blob2(w.position.x, w.position.z, 1.0, .8, -w.rotation.y);
     { const p = V3(); if (window.WBAR) { window.WBAR.getWorldPosition(p); blob2(p.x, p.z, 1.6, .8, -wb.rotation.y + Math.PI / 2); } }
     blob2(-45.4, 6.0, .55, .55); blob2(-76, 6.4, 7.4, 2.8); blob2(-61.5, 6.2, 4.2, 2.2);
     for (let i = 0; i < 26; i++) blob2(-112 + i * 3.2, i < 5 ? 8.0 - i * .8 : 4.7, .55, .55);
@@ -306,5 +308,150 @@ window.big = (num, unit, sub, x0 = .06, y0 = .86, grad = true) => { const x = hu
 window.shot = (pos, tgt, fov = 30, aper = 2.5, labels = [], focus) => { cam.position.set(...pos); cam.fov = fov; cam.lookAt(...tgt); cam.updateProjectionMatrix(); water.material.uniforms.time.value = 4.0;
   post.dof.focus = cam.position.distanceTo(V3(...(focus || tgt))); post.dof.aper = aper; post.dof.maxCoc = aper ? 8 : 0; post.composer.render();
   hud.getContext('2d').clearRect(0, 0, W, H); for (const [k, t, dx, gap] of labels) label(LB[k](), t, dx, gap); return 'ok'; };
+
+// ═════════ HOOK (0–49.5 s, shot table and voice/sfx timing from hook v1 mix.wav) ═════════
+const lv = (a, b, u) => V3(...a).lerp(V3(...b), u), seg = (t, a, b) => Math.min(1, Math.max(0, (t - a) / (b - a))), eio = u => u < .5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2, eo = u => 1 - Math.pow(1 - u, 3);
+const env = (t, a, b, fi, fo) => Math.min(seg(t, a, a + fi), 1 - seg(t, b - fo, b));
+const H0 = { sunI: sun.intensity, envI: scene.environmentIntensity };
+// police cars at both ends of the span, light bars flashing (MDTA)
+const POL = [];
+{ const pg = await glb('police');
+  if (pg) for (const [x, z, ry] of [[-250, 6.2, -Math.PI / 2], [250, -6.2, Math.PI / 2]]) { const c = pg.clone(true); const g2 = fitGround(c, 5.0); g2.position.set(x, Y, z); g2.rotation.y = ry; scene.add(g2); const b = new THREE.Box3().setFromObject(g2);
+    const red = new THREE.MeshStandardMaterial({ color: '#300', emissive: '#ff2a1a', emissiveIntensity: 0 }), blue = new THREE.MeshStandardMaterial({ color: '#003', emissive: '#2a5bff', emissiveIntensity: 0 });
+    const topY = b.max.y + .05; const r1 = add(new THREE.BoxGeometry(.5, .14, .26), red, x, topY, z - .3), b1 = add(new THREE.BoxGeometry(.5, .14, .26), blue, x, topY, z + .3); r1.rotation.y = b1.rotation.y = ry;
+    const pr = new THREE.PointLight('#ff2a1a', 0, 18, 2), pb = new THREE.PointLight('#2a5bff', 0, 18, 2); pr.position.set(x, topY + .3, z - .3); pb.position.set(x, topY + .3, z + .3); scene.add(pr, pb);
+    POL.push({ red, blue, pr, pb, x, z }); } }
+// Dali: wheelhouse window strip + deck floods (go out at 1:29:?? → blackout beat)
+const SHIPL = []; const WHP = { c: V3(0, 0, 18), top: 29, front: 8, w: 42 };
+{ const wt = canvasTex(512, 32, (c, w, h) => { c.fillStyle = '#000'; c.fillRect(0, 0, w, h); for (let i = 0; i < 32; i++) { c.fillStyle = (i * 7) % 5 ? '#fff' : '#8a8a8a'; c.fillRect(i * 16 + 2, 4, 12, 24); } });
+  const wm = new THREE.MeshBasicMaterial({ map: wt, color: new THREE.Color('#ffd9a0').multiplyScalar(1.6), toneMapped: false, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }); SHIPL.push(wm);
+  for (const [w, hh, y, z] of [[38, 1.3, 24.6, 8.05], [38, 1.3, 24.6, 28.05], [14, .8, 14.6, 10.35], [14, .8, 19.6, 10.35], [14, .8, 21.9, 10.35], [14, .8, 19.6, 23.55]]) { const m2 = new THREE.Mesh(new THREE.PlaneGeometry(w, hh), wm); m2.position.set(0, y, z); ship.add(m2); } }
+const FLOODS = []; for (const zz of [-100, -40, 60, 115]) { const sp = new THREE.SpotLight('#fff1d8', 0, 90, .9, .8, 1.6); sp.position.set(0, 40, zz); sp.target.position.set(0, 12, zz); ship.add(sp, sp.target); FLOODS.push(sp); }
+const shipLightsOn = on => { SHIPL.forEach(m => m.color.set('#ffd9a0').multiplyScalar(on ? 3.2 : 0)); FLOODS.forEach(f => f.intensity = on ? 1800 : 0); };
+// trail for the timeline (top view)
+const trail = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .85, depthWrite: false })); trail.rotation.x = -Math.PI / 2; trail.renderOrder = 6; trail.visible = false; scene.add(trail);
+const PATH = u => { const bz = 330 - u * 290, bx = -150 - 18 * u, ang = -.04 - .12 * u; return [bx, bz, ang]; };
+
+// ── macro scene: control cabinet terminal block (millimetres), ported from hook v1 ──
+const macro = new THREE.Scene(); macro.background = scene.background; macro.environment = scene.environment; macro.environmentIntensity = .4;
+const mcam = new THREE.PerspectiveCamera(30, W / H, 2, 4000);
+const MP = makePost(r, macro, mcam, W, H, { ssaa: SS, ao: true, aoAmt: .7, aoRadius: 6, aoScale: 1.4 }); MP.bloom.strength = .2; MP.bloom.threshold = 1.2; MP.vig.uniforms.amt.value = .4;
+const mkey = new THREE.SpotLight('#fff4e6', 2.2, 0, .6, .9, 0); mkey.castShadow = true; mkey.shadow.mapSize.set(2048, 2048); mkey.shadow.bias = -.0002; mkey.shadow.normalBias = .03; macro.add(mkey, mkey.target);
+const mfill = new THREE.DirectionalLight('#a9c0e0', .4); mfill.position.set(-300, 200, 200); macro.add(mfill); macro.add(new THREE.HemisphereLight('#c9d6e0', '#30302c', .5));
+const mesh = (g2, m, p, x = 0, y = 0, z = 0) => add(g2, m, x, y, z, p), BOX = (w, h, d) => new RoundedBoxGeometry(w, h, d, 2, Math.min(w, h, d) * .08), STD = (c, ro = .5, me = 0, ex = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: ro, metalness: me, ...ex });
+const NB = 16, PITCH = 6.2, BAD = 9, FACE = 23, WY = 8;
+mesh(new THREE.PlaneGeometry(1400, 900), STD('#b7bab9', .45, .6), macro, 0, 0, -26);
+mesh(BOX(NB * PITCH + 160, 7.5, 35), STD('#c8ccce', .3, .85), macro, 0, -24, -6);
+{ const duct = new THREE.Group(); macro.add(duct); duct.position.set(0, 74, 0); mesh(BOX(NB * PITCH + 200, 40, 50), STD('#8d9194', .7), duct, 0, 0, -2); for (let i = -12; i <= 12; i++) mesh(BOX(4, 30, 52), STD('#55595c', .8), duct, i * 9, -6, -2); }
+const blockMat = STD('#8e9396', .5), blueBlock = STD('#2f6fb3', .5), holeMat = STD('#0b0c0e', 1), insMat = STD('#1c2c4a', .42), insBlack = STD('#17191c', .42);
+const cuMat = STD('#c98a4a', .28, .95, { emissive: '#ff9a30', emissiveIntensity: 0 });
+const labelTex = txt2 => canvasTex(256, 64, (c, w, h) => { c.fillStyle = '#f2f1ea'; c.fillRect(0, 0, w, h); c.fillStyle = '#1b1c1e'; c.font = '600 38px "Courier New", monospace'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(txt2, 64, 34); c.fillText(txt2, 192, 34); });
+const xOfB = i => (i - (NB - 1) / 2) * PITCH;
+for (let i = 0; i < NB; i++) { const x = xOfB(i), g2 = new THREE.Group(); g2.position.x = x; macro.add(g2); const bm = i === 4 || i === 12 ? blueBlock : blockMat;
+  mesh(BOX(5.4, 40, 34), bm, g2, 0, 0, 0); mesh(BOX(5.4, 10, 12), bm, g2, 0, 15, 17); mesh(new THREE.BoxGeometry(3.4, 3.4, .6), holeMat, g2, 0, WY, FACE + .05);
+  mesh(new THREE.CylinderGeometry(1.7, 1.7, 1.2, 40), STD('#c4c7c9', .3, .9), g2, 0, 20.2, 17); mesh(new THREE.TorusGeometry(1.7, .2, 8, 40).rotateX(Math.PI / 2), STD('#c4c7c9', .3, .9), g2, 0, 20.75, 17); mesh(new THREE.BoxGeometry(.5, .5, 3), holeMat, g2, 0, 20.9, 17);
+  mesh(new THREE.BoxGeometry(4.6, .5, 6), STD('#f2f2ee', .8), g2, 0, 20.2, 2);
+  const bad = i === BAD, ins0 = FACE + (bad ? 6.5 : 0);
+  const curve = new THREE.CatmullRomCurve3([V3(0, WY, ins0), V3(0, WY, ins0 + 25), V3(0, WY - 10, ins0 + 40), V3(0, WY - 40, ins0 + 48), V3(0, WY - 95, ins0 + 50)]);
+  mesh(new THREE.TubeGeometry(curve, 90, 1.35, 24), i % 3 ? insMat : insBlack, g2);
+  if (bad) { const cu = mesh(new THREE.CylinderGeometry(.85, .85, ins0 - FACE + 6, 14), cuMat, g2, 0, WY, FACE + (ins0 - FACE - 6) / 2); cu.rotation.x = Math.PI / 2; }
+  const bz = bad ? FACE + 7 : FACE + 14; const bmat = STD('#ffffff', .65, 0, { map: labelTex('X4-' + String(i + 1).padStart(2, '0')) });
+  const band = mesh(new THREE.CylinderGeometry(1.75, 1.75, 8, 40, 1, true), bmat, g2, 0, WY, bz); band.rotation.x = Math.PI / 2; band.rotation.y = Math.PI / 2; mesh(new THREE.TorusGeometry(1.75, .12, 6, 20), bmat, g2, 0, WY, bz - 4); }
+
+// ── shot table (seconds) ──
+// Shot table = calque of the donor hook (neo «Deepwater Horizon» 0:00–1:32, cuts measured 29.10: 0 · 10.3 · 12.7 · 19.7 · 21.4 · 24.4 · 28.0 · 32.0 · 33.5 · 34.6 · 37.6 · 39.8 · 42.5 · 44.4 · 64.6 · 73.6 · 89.1).
+// Cuts sit on Jeff VO phrase gaps (silencedetect). dis = dissolve-in length (donor opens with one long plan of dissolves).
+const SH = [
+  { a: 0, b: 3.7, k: 'bridgeWide' },            // «At 1:27 in the morning,»              ← donor 0–10.3 long open (dissolves)
+  { a: 3.7, b: 7.45, k: 'police', dis: 1.0 },   // «the police at both ends … radio.»
+  { a: 7.45, b: 9.6, k: 'deckRun' },            // «They have 77 seconds.»                ← 10.3–12.7 (2.4 s)
+  { a: 9.6, b: 14.45, k: 'crew' },              // «Out on the bridge, eight men …»       ← 12.7–19.7 aerial (7 s) → crane down
+  { a: 14.45, b: 16.0, k: 'daliTop' },          // «The ship the radio is talking about»  ← 19.7–21.4 satellite (1.7 s)
+  { a: 16.0, b: 17.6, k: 'daliIn' },            // «… is the Dali.»
+  { a: 17.6, b: 20.0, k: 'scale' },             // «It is 984 feet long,»                 ← 21.4–24.4 (3.0 s)
+  { a: 20.0, b: 22.0, k: 'scale2' },            // «nearly three football fields,»        ← 24.4–28.0
+  { a: 22.0, b: 25.4, k: 'stacks' },            // «and it carries 4,680 containers.»     ← 28.0–32.0 (4.0 s)
+  { a: 25.4, b: 27.25, k: 'wheelhouse' },       // «Less than three minutes earlier,»     ← 32.0–33.5 quick pair
+  { a: 27.25, b: 29.05, k: 'lightsOut' },       // «every light on that ship went out.»   ← 33.5–34.6
+  { a: 29.05, b: 30.55, k: 'black' },           //  1.5 s black, no voice
+  { a: 30.55, b: 33.85, k: 'blockWide' },       // «Twenty months later, investigators found the reason:» ← 34.6–37.6 first 3D object
+  { a: 33.85, b: 35.4, k: 'wire' },             // «one signal wire,»                     ← 37.6–39.8
+  { a: 35.4, b: 36.8, k: 'gap' },               // «loose in its terminal,»               ← 39.8–42.5
+  { a: 36.8, b: 39.25, k: 'band' },             // «held back by the label …»             ← 42.5–44.4
+  { a: 39.25, b: 45.3, k: 'timeline' },         // «This is the story of that wire, second by second, …» ← 44.4–64.6 one long plan (promise)
+  { a: 45.3, b: 49.5, k: 'title' }];            //  ONE WIRE                              ← donor title inside the long plan, ~0:56
+const T_OUT = 29.05; window.SH = SH;
+const hx = () => hud.getContext('2d');
+const txt = (str, x, y, px, w8 = 500, a = 1, align = 'left', col = '#fff', ls = 0) => { if (a <= 0) return; const x2 = hx(), k = H / 1080; x2.save(); x2.globalAlpha = a; x2.fillStyle = col; x2.font = `${w8} ${px * k}px Inter, "Helvetica Neue", Arial`; x2.letterSpacing = `${ls * k}px`; x2.textAlign = align; x2.textBaseline = 'alphabetic'; x2.shadowColor = 'rgba(0,0,0,.35)'; x2.shadowBlur = 8 * k; x2.fillText(str, x, y); x2.restore(); };
+const labelA = (wp, text, dx, a, c2 = cam) => { if (a <= 0) return; const x2 = hx(); x2.save(); x2.globalAlpha = a; const v = wp.clone().project(c2); if (v.z < 1) { const k = H / 1080, px = (v.x + 1) / 2 * W, py = (1 - v.y) / 2 * H, sx = px + dx * 40 * k; x2.strokeStyle = '#fff'; x2.lineWidth = 1.5 * k; x2.beginPath(); x2.moveTo(sx, py); x2.lineTo(sx + dx * 34 * k, py); x2.stroke(); x2.fillStyle = '#fff'; x2.font = `500 ${30 * k}px Inter, "Helvetica Neue", Arial`; x2.letterSpacing = `${1 * k}px`; x2.textBaseline = 'middle'; x2.textAlign = dx > 0 ? 'left' : 'right'; x2.fillText(text.toUpperCase(), sx + dx * 46 * k, py); } x2.restore(); };
+const bigA = (a, num, unit, sub, x0 = .06, y0 = .86, grad = true) => { if (a <= 0) return; const x2 = hx(); x2.save(); x2.globalAlpha = a; x2.translate(0, (1 - eo(a)) * 18); window.big(num, unit, sub, x0, y0, grad); x2.restore(); };
+const fade = document.createElement('canvas'); fade.width = W; fade.height = H; const fx = fade.getContext('2d');
+const MAC = { blockWide: 1, wire: 1, gap: 1, band: 1 };
+function drawMacro(k, u, t) { const bx = xOfB(BAD); let pos, tgt, fp, ap;
+  if (k === 'blockWide') { pos = lv([bx - 80, 64, 170], [bx - 40, 52, 144], eio(u)); tgt = lv([bx - 16, 4, 12], [bx - 4, 6, 16], eio(u)); fp = V3(bx - 6, 6, 18); ap = 30; }
+  else if (k === 'wire') { pos = lv([bx + 26, 80, 78], [bx + 20, 68, 66], eio(u)); tgt = V3(bx + 2, WY, FACE + 8); fp = V3(bx, WY, FACE + 4); ap = 70; }
+  else if (k === 'gap') { pos = lv([bx + 15, 21, 45], [bx + 12, 17, 39], eio(u)); tgt = V3(bx, WY, FACE + 3); fp = V3(bx, WY, FACE + 2); ap = 90; }
+  else { pos = lv([bx - 17, 27, 54], [bx - 13, 22, 47], eio(u)); tgt = V3(bx, WY, FACE + 7.5); fp = V3(bx, WY, FACE + 7); ap = 90; }
+  mcam.position.copy(pos); mcam.lookAt(tgt); mcam.fov = 30; mcam.updateProjectionMatrix(); mkey.position.set(bx + 90, 220, 180); mkey.target.position.set(bx - 10, 0, 10); mkey.target.updateMatrixWorld();
+  cuMat.emissiveIntensity = k === 'blockWide' ? 0 : seg(t, 33.9, 34.5) * (1.2 + .4 * Math.sin(t * 6));
+  MP.dof.focus = pos.distanceTo(fp); MP.dof.aper = ap; MP.dof.maxCoc = 10; MP.composer.render(); }
+function drawWorld(k, u, t) {
+  const ph = (t * 1.6) % 1, rOn = (ph < .07 || (ph > .12 && ph < .19)), bOn = (ph > .5 && ph < .57) || (ph > .62 && ph < .69);
+  POL.forEach(p => { p.red.emissiveIntensity = rOn ? 6 : .1; p.blue.emissiveIntensity = bOn ? 6 : .1; p.pr.intensity = rOn ? 60 : 0; p.pb.intensity = bOn ? 60 : 0; });
+  SC.fields.visible = false; SC.fields.position.y = 0; trail.visible = false; placeShip(-168, 40, -.16); shipLightsOn(t < T_OUT); sun.intensity = H0.sunI; scene.environmentIntensity = H0.envI;
+  let pos, tgt, fov = 34, ap = 2.5, focus = null;
+  if (k === 'bridgeWide') { pos = lv([-520, 300, 700], [-485, 268, 660], eio(u)); tgt = V3(-20, 0, 90); fov = 30; ap = 0; }
+  else if (k === 'police') { pos = lv([-239.5, 57.8, 11.4], [-242, 57.5, 9.4], eio(u)); tgt = V3(-251, 57, 5.8); fov = 32; ap = 4; focus = [-250, 57, 6.2]; }
+  else if (k === 'deckRun') { const x = -12 - 14 * eio(u); pos = V3(x, 59.6, 2.6); tgt = V3(x - 60, 57.2, 6.4); fov = 36; ap = 2; }
+  else if (k === 'crew') { const c = eio(u); pos = lv([-45, 96, 3], [-37.5, 60.6, 0.9], c); tgt = lv([-48.5, 56, 6.4], [-53.5, 56.4, 7.1], c); fov = 40; ap = 3 * c; focus = [-47, 56.6, 6.6]; }
+  else if (k === 'daliTop') { pos = lv([-160, 540, 70], [-163, 490, 62], eio(u)); tgt = V3(-170, 0, 40); fov = 30; ap = 0; }
+  else if (k === 'daliIn') { pos = lv([-95, 6, -150], [-101, 7.2, -128], eio(u)); tgt = V3(-185, 24, 140); fov = 32; ap = 2; }
+  else if (k === 'scale' || k === 'scale2') { SC.fields.visible = true; const fa = k === 'scale' ? seg(t, 17.7, 18.7) : 1; SC.fields.position.y = -(1 - eo(fa)) * 3;
+    if (k === 'scale') { pos = lv([70, 250, 250], [88, 260, 236], eio(u)); tgt = V3(-185, 0, 190); }
+    else { pos = lv([-40, 70, 380], [-58, 62, 352], eio(u)); tgt = V3(-190, 4, 180); fov = 34; ap = 2; } }
+  else if (k === 'stacks') { pos = lv([-400, 250, 560], [-374, 228, 524], eio(u)); tgt = V3(-185, 8, 175); fov = 32; ap = 2; focus = [-185, 20, 190]; }
+  else if (k === 'wheelhouse' || k === 'lightsOut') { const nk = .32; sun.intensity = H0.sunI * nk; scene.environmentIntensity = H0.envI * nk;
+    if (k === 'wheelhouse') { pos = ship.localToWorld(lv([70, 34, -130], [60, 33, -112], eio(u))); tgt = ship.localToWorld(V3(0, 22, 12)); fov = 34; ap = 1.5; }
+    else { pos = ship.localToWorld(lv([24, 35, -44], [18, 32, -34], eio(u))); tgt = ship.localToWorld(V3(0, 24, 9)); fov = 34; ap = 3; focus = tgt.toArray(); } }
+  else if (k === 'timeline') { const pu = eio(seg(t, 39.6, 45.2)), [bx, bz, ang] = PATH(pu); placeShip(bx, bz, ang);
+    pos = lv([-165, 980, 330], [-170, 880, 296], eio(u)); tgt = V3(-170, 0, 185); fov = 34; ap = 0; shipLightsOn(false); }
+  cam.position.copy(pos); cam.fov = fov; cam.lookAt(tgt); cam.updateProjectionMatrix(); water.material.uniforms.time.value = 4 + t * .35;
+  post.dof.focus = cam.position.distanceTo(focus ? V3(...focus) : tgt); post.dof.aper = ap; post.dof.maxCoc = ap ? 8 : 0; post.composer.render(); }
+const draw = (k, u, t) => MAC[k] ? drawMacro(k, u, t) : drawWorld(k, u, t);
+// HUD — a frame gets a label OR a number (never text that only repeats the voice)
+function hudFor(k, t) {
+  if (k === 'bridgeWide') labelA(LB.bridge(), 'Francis Scott Key Bridge', 1, env(t, .5, 3.7, .5, .3));
+  if (k === 'police') labelA(V3(-250, 58.3, 6.2), 'Police · south end', -1, env(t, 4.9, 7.45, .3, .2));
+  if (k === 'deckRun') bigA(env(t, 7.6, 9.6, .3, .15), '77', 'seconds', 'from the order to close the bridge to impact');
+  if (k === 'crew') labelA(V3(-50, 58.6, 7.2), '8 men · road crew', 1, env(t, 11.6, 14.45, .35, .2));
+  if (k === 'daliIn') labelA(LB.dali(), 'Dali', 1, env(t, 16.2, 17.6, .25, .1));
+  if (k === 'scale') bigA(env(t, 18.0, 20.0, .3, .1), '984', 'ft', 'nearly three football fields');
+  if (k === 'stacks') { const n = Math.round(4680 * eo(seg(t, 22.2, 24.2))); bigA(env(t, 22.1, 25.4, .3, .15), n.toLocaleString('en-US'), 'containers', 'on board the Dali', .60, .30, false); }
+  if (k === 'blockWide') { labelA(V3(xOfB(3), 21, 2), 'Terminal block', -1, env(t, 31.6, 33.85, .4, .15), mcam); txt('NTSB FINAL REPORT · DECEMBER 2025', 56 * H / 1080, 86 * H / 1080, 24, 500, env(t, 30.9, 33.85, .4, .15), 'left', '#e6e9ec', 2); }
+  if (k === 'wire') labelA(V3(xOfB(BAD), WY + 1.4, FACE + 24), 'Signal wire', 1, env(t, 34.0, 35.4, .25, .1), mcam);
+  if (k === 'gap') labelA(V3(xOfB(BAD), WY + .5, FACE + 1.5), 'Loose in its terminal', -1, env(t, 35.5, 36.8, .25, .1), mcam);
+  if (k === 'band') labelA(V3(xOfB(BAD) + 1.5, WY + 1.9, FACE + 9), 'Label band', 1, env(t, 37.0, 39.25, .25, .15), mcam);
+  if (k === 'timeline') { labelA(V3(-153, 1, 330 - .2 * 290), 'Second blackout · 0.2 mi', 1, env(t, 39.8, 42.2, .3, .2)); labelA(V3(-160, 1, 150), 'Bridge closed · 1:27:53', 1, env(t, 42.3, 44.3, .3, .2)); labelA(V3(P17, 20, 14), 'Pier 17', -1, env(t, 44.4, 45.3, .25, .05)); }
+}
+window.render = t => {
+  let i = SH.findIndex(s => t < s.b); if (i < 0) i = SH.length - 1; const sh = SH[i], u = seg(t, sh.a, sh.b), k = sh.k; const x2 = hx(); x2.clearRect(0, 0, W, H);
+  if (k === 'black' || k === 'title') { r.setRenderTarget(null); r.setClearColor('#000', 1); r.clear(); x2.fillStyle = '#000'; x2.fillRect(0, 0, W, H);
+    if (k === 'title') { const a = env(t, 45.5, 49.6, .9, .01); txt('ONE WIRE', W / 2, H / 2 + 40 * H / 1080, 170, 700, a, 'center', '#fff', 10 + 12 * eo(seg(t, 45.5, 49.5))); txt('HOW THE KEY BRIDGE CAME DOWN', W / 2, H / 2 + 110 * H / 1080, 28, 400, env(t, 46.4, 49.6, .8, .01), 'center', '#b8bfc6', 3); }
+    return; }
+  const dis = sh.dis && t < sh.a + sh.dis ? 1 - eio(seg(t, sh.a, sh.a + sh.dis)) : 0;
+  if (dis > 0) { const p = SH[i - 1]; draw(p.k, seg(t, p.a, p.b + sh.dis), t); fx.clearRect(0, 0, W, H); fx.drawImage(r.domElement, 0, 0, W, H); }
+  draw(k, u, t);
+  if (dis > 0) { x2.save(); x2.globalAlpha = dis; x2.drawImage(fade, 0, 0); x2.restore(); }
+  hudFor(k, t);
+};
+// ── capture: render(t) → WebCodecs H.264 → mp4 → Downloads ──
+window.CAPTURE = async (from, to, fps = 30, name = 'kb-hook-neo.mp4') => { const { Muxer, ArrayBufferTarget } = await import('https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/+esm');
+  const glc = r.domElement, comp = document.createElement('canvas'); comp.width = W; comp.height = H; const cx = comp.getContext('2d'); const target = new ArrayBufferTarget();
+  const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H, frameRate: fps }, fastStart: 'in-memory' });
+  const enc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: e => { window.CAPERR = String(e); } }); enc.configure({ codec: 'avc1.640033', width: W, height: H, bitrate: 30e6, framerate: fps, latencyMode: 'quality' });
+  const F0 = Math.round(from * fps), F1 = Math.round(to * fps); window.PROG = { f: F0, F1, t0: performance.now() };
+  for (let f = F0; f < F1; f++) { window.render(f / fps); cx.drawImage(glc, 0, 0, W, H); cx.drawImage(hud, 0, 0); const vf = new VideoFrame(comp, { timestamp: Math.round((f - F0) * 1e6 / fps), duration: Math.round(1e6 / fps) }); enc.encode(vf, { keyFrame: (f - F0) % 60 === 0 }); vf.close();
+    if (enc.encodeQueueSize > 6) await new Promise(rs => enc.addEventListener('dequeue', rs, { once: true })); window.PROG.f = f + 1; if (f % 4 === 0) await new Promise(rs => setTimeout(rs, 0)); }
+  await enc.flush(); muxer.finalize(); const blob = new Blob([target.buffer], { type: 'video/mp4' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); window.PROG.done = true; window.PROG.bytes = blob.size; window.PROG.sec = (performance.now() - window.PROG.t0) / 1000; };
 window.READY = true;
 </script></body></html>
